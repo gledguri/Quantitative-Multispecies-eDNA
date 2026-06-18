@@ -40,7 +40,7 @@ except ImportError:
 
 # ── constants ─────────────────────────────────────────────────────────────────
 BIOPROJECT   = "PRJNA1426049"
-BASE_DIR     = Path(__file__).parent
+BASE_DIR     = Path(__file__).resolve().parent.parent / "SRA"
 METADATA_DIR = BASE_DIR / "metadata"
 FASTQ_DIR    = BASE_DIR / "fastq"
 
