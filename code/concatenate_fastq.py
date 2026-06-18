@@ -14,7 +14,7 @@ import gzip
 import sys
 from pathlib import Path
 
-BASE_DIR  = Path(__file__).parent
+BASE_DIR  = Path(__file__).resolve().parent.parent / "SRA"
 FASTQ_DIR = BASE_DIR / "fastq"
 DEFAULT_OUT = BASE_DIR / "combined_R2.fastq.gz"
 

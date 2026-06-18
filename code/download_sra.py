@@ -180,8 +180,8 @@ def main():
                         help="Print what would be downloaded without downloading")
     args = parser.parse_args()
 
-    METADATA_DIR.mkdir(exist_ok=True)
-    FASTQ_DIR.mkdir(exist_ok=True)
+    METADATA_DIR.mkdir(parents=True, exist_ok=True)
+    FASTQ_DIR.mkdir(parents=True, exist_ok=True)
 
     # ── 1. fetch metadata ──────────────────────────────────────────────────
     meta_csv = METADATA_DIR / "metadata.csv"
