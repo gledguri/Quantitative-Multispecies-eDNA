@@ -42,14 +42,14 @@
 #       └── combined_R2.fastq     Concatenated reverse reads (decompressed)
 #
 # =============================================================================
-
 library(here)
 
+
 # --- Download files from Zenodo --------------------------------------------------------------
+
 options(timeout = 3600) 
 # record_id <- "18603204"
 record_id <- "20753379"
-
 
 meta <- jsonlite::fromJSON(paste0("https://zenodo.org/api/records/", record_id))
 
@@ -66,7 +66,7 @@ download.file(
 
 # --- Unzip files from Zenodo -----------------------------------------------------------------
 tmp <- tempfile()
-unzip("Code_and_raw_data.zip", exdir = tmp)
+unzip("Code_and_raw_data.zip", exdir = tmp, unzip = "unzip")
 
 inner <- file.path(tmp, "Code_and_raw_data")
 files <- list.files(inner, all.files = TRUE, no.. = TRUE, full.names = TRUE)
@@ -74,12 +74,14 @@ file.copy(files, ".", recursive = TRUE)
 
 unlink(tmp, recursive = TRUE)   # clean up the temp copy
 
+
 # --- Open one of the analysis notebooks -------------------------------------
 # file.edit(here("Code", "1_Run_QM_qPCR.qmd"))
 # file.edit(here("Code", "2_sdmTMB_smooths_13sp.qmd"))
 file.edit(here("Code", "3_All_Figures.qmd"))
 
-# --- Download raw sequencing data from the SRA ------------------------------
+
+# --- Download raw sequencing data from the SRA (optional) ------------------------------------
 # Download all SRA data
 system2("python3", here("code", "download_sra.py"))
 
@@ -89,3 +91,4 @@ system2("python3", here("code", "concatenate_fastq.py"))
 # Unzipt the SRA fastq concatenated data
 if (!requireNamespace("R.utils", quietly = TRUE)) install.packages("R.utils")
 R.utils::gunzip(here('SRA','combined_R2.fastq.gz'), remove = FALSE)
+
