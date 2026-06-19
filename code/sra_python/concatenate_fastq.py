@@ -6,7 +6,6 @@ into a single output file.
 Usage:
   python3 concatenate_fastq.py
   python3 concatenate_fastq.py --output combined_R2.fastq.gz
-  python3 concatenate_fastq.py --dry-run
 """
 
 import argparse
@@ -14,7 +13,7 @@ import gzip
 import sys
 from pathlib import Path
 
-BASE_DIR  = Path(__file__).resolve().parent.parent / "SRA"
+BASE_DIR  = Path(__file__).resolve().parent.parent.parent / "SRA"
 FASTQ_DIR = BASE_DIR / "fastq"
 DEFAULT_OUT = BASE_DIR / "combined_R2.fastq.gz"
 
@@ -25,7 +24,7 @@ def find_r2_files(fastq_dir: Path) -> list[Path]:
     return files
 
 
-def concatenate(files: list[Path], output: Path, dry_run: bool = False):
+def concatenate(files: list[Path], output: Path):
     total = len(files)
     total_bytes = sum(f.stat().st_size for f in files)
     total_gb = total_bytes / 1e9
@@ -34,12 +33,6 @@ def concatenate(files: list[Path], output: Path, dry_run: bool = False):
     print(f"Total size           : {total_gb:.2f} GB")
     print(f"Output               : {output}")
     print()
-
-    if dry_run:
-        print("-- dry run: files that would be concatenated --")
-        for f in files:
-            print(f"  {f}")
-        return
 
     print("Concatenating... (this may take a while for large datasets)")
     # Decompress each file and write into a single gzip stream so the output
@@ -76,8 +69,6 @@ def main():
     parser = argparse.ArgumentParser(description="Concatenate all _2.fastq.gz files into one.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUT,
                         help=f"Output file path (default: {DEFAULT_OUT})")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="List files that would be concatenated without writing")
     args = parser.parse_args()
 
     if not FASTQ_DIR.exists():
@@ -90,13 +81,13 @@ def main():
         print(f"No *_2.fastq.gz files found under {FASTQ_DIR}")
         sys.exit(1)
 
-    if args.output.exists() and not args.dry_run:
+    if args.output.exists():
         answer = input(f"\n{args.output} already exists. Overwrite? [y/N] ").strip().lower()
         if answer != "y":
             print("Aborted.")
             sys.exit(0)
 
-    concatenate(files, args.output, dry_run=args.dry_run)
+    concatenate(files, args.output)
 
 
 if __name__ == "__main__":

@@ -40,7 +40,7 @@ except ImportError:
 
 # ── constants ─────────────────────────────────────────────────────────────────
 BIOPROJECT   = "PRJNA1426049"
-BASE_DIR     = Path(__file__).resolve().parent.parent / "SRA"
+BASE_DIR     = Path(__file__).resolve().parent.parent.parent / "SRA"
 METADATA_DIR = BASE_DIR / "metadata"
 FASTQ_DIR    = BASE_DIR / "fastq"
 
@@ -176,8 +176,6 @@ def main():
                         help="Only fetch metadata, skip FASTQ download")
     parser.add_argument("--runs", nargs="+", metavar="SRR",
                         help="Download only these run accessions (default: all)")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Print what would be downloaded without downloading")
     args = parser.parse_args()
 
     METADATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -232,10 +230,6 @@ def main():
                      if u.strip() and u.strip().endswith("_2.fastq.gz")]
 
         print(f"[{i}/{total}] {run_acc}: {len(ftp_urls)} file(s)")
-        if args.dry_run:
-            for u in ftp_urls:
-                print(f"    would download: {ena_ftp_to_https(u)}")
-            continue
 
         ok = download_run(run_acc, ftp_urls, FASTQ_DIR / run_acc)
         if not ok:

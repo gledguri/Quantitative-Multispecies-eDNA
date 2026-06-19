@@ -1,0 +1,2420 @@
+---
+title: "All_Figures"
+format: 
+  html:
+    toc: true
+    toc-location: left
+    toc-title: "Table of Contents"
+    toc-depth: 2
+    number-sections: true
+    page-layout: full
+    self-contained: true 
+    collapsible: true
+    collapse-level: 1
+    # code-summary: "Show/Hide Code"  # Toggle text for code folding
+    # css: 'style_gg.css'
+    grid:
+      sidebar-width: 200px
+      body-width: 880px
+      margin-width: 200px
+      gutter-width: 1.5rem
+author: Gled Guri
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+```{=html}
+<style>
+body {
+  font-family: Arial, sans-serif;
+  font-size: 18px;
+}
+
+h1 {
+  font-size: 22px;  /* Adjust the size of H1 headers */
+  font-weight: normal;  /* Make H1 headers not bold */
+}
+
+h2 {
+  font-size: 18px;  /* Adjust the size of H2 headers */
+  font-weight: normal;  /* Make H2 headers not bold */
+}
+
+h3 {
+  font-size: 18px;  /* Adjust the size of H3 headers */
+  font-weight: normal;  /* Make H3 headers not bold */
+}
+
+h4 {
+  font-size: 18px;  /* Adjust the size of H4 headers */
+  font-weight: normal;  /* Make H4 headers not bold */
+}
+</style>
+```
+
+```{r, include=FALSE}
+dwidth <- 150
+options(width = dwidth)
+```
+
+```{r, include=FALSE, warning=FALSE, message=FALSE}
+options(width = 300) #wd
+```
+
+```{r, include=FALSE, warning=FALSE, message=FALSE}
+options(width = dwidth) #wd
+```
+
+```{r}
+# Functions -----------------------------------------------------------------------------------
+
+scientific <- function(x) {
+  c <- log10(x)
+  formatted <- paste0("10^", round(c, 2))
+  str2expression(formatted)
+}
+scientific_type_2 <- function(x) {
+  ifelse(
+    x == 0, 
+    expression(0), 
+    str2expression(paste0(ifelse(x < 0, "-", ""), "10^", round(log10(abs(x)), 5)))
+  )
+}
+scientific_10 <- function(x) {
+  c <- log10(x)
+  expo <- floor(c)
+  base <- round(x / 10^expo,3)
+  formatted <- paste0(base,'%*%',"10^", expo)
+  str2expression(formatted)
+}
+
+scientific_10_type_2 <- function(x) {
+c <- scales::scientific_format()(x)
+t <- gsub("e", "%*%10^", c)
+t2 <- gsub("10\\^\\+", "10\\^", t)
+str2expression(t2)
+}
+
+round_by10 <- function(x) {
+  c <- log10(x)
+  expo <- floor(c)
+  base <- round(x / 10^expo)
+  return(base*10^expo)
+}
+extract_param <- function (model, par) {
+  fit <- (methods::selectMethod("summary", signature = "stanfit"))(object = model, 
+                                                                   par = par)
+  fit <- fit$summary
+  return(fit %>% unlist() %>% as.data.frame)
+  # return(fit %>% unlist() %>% as.data.frame %>% round(., 3))
+}
+
+extract_matrix <- function (stanMod, param, vector = "mean") {
+    dd <- extract_param(stanMod, param)
+    nrrow <- str_split(dd %>% rownames(), "\\[") %>% as.data.frame() %>% 
+      t() %>% as.data.frame() %>% pull(V2) %>% gsub("\\,\\d+\\]", 
+                                                    "", .) %>% as.numeric() %>% max()
+    nccol <- str_split(dd %>% rownames(), "\\[\\d+\\,") %>% as.data.frame() %>% 
+      t() %>% as.data.frame() %>% pull(V2) %>% gsub("\\]", 
+                                                    "", .) %>% as.numeric() %>% max()
+    ret <- as.data.frame(matrix(NA, nrrow, nccol)) %>% setNames(c(1:nccol))
+    for (i in 1:nrrow) {
+      for (j in 1:nccol) {
+        ret[i, j] <- extract_param(stanMod, param) %>% 
+          filter(rownames(.) == str_subset(rownames(.), paste0("\\[", i, ",", j, "\\]"))) %>% pull(vector)
+      }
+    }
+    return(ret)
+}
+
+inverselogit <- function (x) 
+{
+  return(1/(1 + exp(-x)))
+}
+
+logsumexp <- function (x) 
+{
+    y = max(x)
+    y + log(sum(exp(x - y)))
+}
+
+softmax <- function (x) 
+{
+    exp(x - logsumexp(x))
+}
+
+softmax_m <- function (data) 
+{
+    temp <- as.data.frame(matrix(NA, ncol = ncol(data), nrow = nrow(data)))
+    for (i in 1:ncol(data)) {
+        x <- data[, i]
+        temp[, i] <- exp(x - logsumexp(x))
+    }
+    return(temp)
+}
+
+select <- dplyr::select
+```
+
+```{r, warning=FALSE, message=FALSE,results='hide'}
+## Libraries
+library(tidyverse)
+library(corrplot)
+library(sf)
+library(here)
+library(rnaturalearth)
+library(MoMAColors);#devtools::install_github("BlakeRMills/MoMAColors")
+library(PNWColors);#install.packages("PNWColors")
+library(ggspatial)
+library(ggplot2)
+library(dplyr)
+library(tibble)
+library(tidyr)
+library(rstan)
+library(purrr)
+# library(QM)
+library(gridGraphics)
+library(ggridges)
+library(scales)
+library(cowplot)
+library(magick)
+```
+
+```{r, warning=FALSE, message=FALSE,results='hide'}
+# Load Data -----------------------------------------------------------------------------------
+stan_post <- readRDS(here('Intermediate_data','Joint_mod_output.rds'))
+stan_post_mock <- readRDS(here('Intermediate_data','Mock_mod_output.rds'))
+preds <- read_rds(here('Intermediate_data','Log_D_est_smoothed.rds'))
+
+# Raw data
+stan_data <- readRDS(here('Intermediate_data','Joint_mod_data_input.rds'))
+
+# Long format of raw data
+raw_data <- stan_data[["sample_data_labeled"]] %>% 
+  pivot_longer(cols = sp_1:sp_13,names_to = 'sp',values_to = 'raw_reads')
+
+fit <- read_rds(here('Intermediate_data','Log_D_est.rds')) %>% 
+    rename(Log_D_est='mean',species_idx='taxa')
+    # select(Log_D_est,species_idx,species,tubeID,tube_idx,station_depth_idx,
+    #        station_idx,tech,raw_reads,station,lat,lon,depth,depth_cat,wash_idx,sampleidx)
+
+# Load qPCR raw data
+qPCR_unk <- stan_data$qpcr_unk
+
+# Load Metabarcoding data
+mfu_raw <- read.csv(here('data','mfu_raw2.csv'))
+mfu_stan <- stan_data$sample_data_labeled
+
+
+states <- ne_states(country='United States of America',returnclass = 'sf') %>% 
+  filter(name %in% c('California','Oregon','Washington','Nevada')) %>% 
+  st_transform("+proj=utm +zone=10 +datum=WGS84 +units=km +no_defs +type=crs")
+
+# Get Canada and transform to the same CRS
+canada <- ne_states(country = 'Canada', returnclass = 'sf') %>% 
+  filter(name %in% c('British Columbia')) %>% 
+  st_transform("+proj=utm +zone=10 +datum=WGS84 +units=km +no_defs +type=crs")
+
+coast_line <- rbind(states, canada)
+
+dat_bbox <- data.frame(xmin=246.1216, ymin=4249.5080, xmax=460.6902, ymax=5365.6749)
+
+sp_list <- sapply(preds, function(df) unique(df[["species"]])) %>% as.vector()
+
+
+predgrid <- preds[[1]] %>% distinct(grID,depth_cat,x) %>% st_as_sf()
+
+dat_bbox <- preds %>% pluck(1) %>% st_as_sf() %>% st_bbox()
+
+preds_all <- preds %>% list_rbind()
+
+# quantiles of predictions for each species
+preds_summ <- preds_all %>% 
+  dplyr::select(grID,depth_cat,est,species) %>% 
+  group_by(species) %>% 
+  mutate(quant=cume_dist(est)) %>% 
+  ungroup()
+
+spp_all <- unique(preds_all$species) %>% head(., -1)
+spp_all_hake <- unique(preds_all$species)
+
+color_mapping <-
+  stan_data$sp_list %>% select(-species_idx) %>% 
+  mutate(species=if_else(species=='Zz_Merluccius productus','Merluccius productus',species)) %>% 
+  mutate(col = case_when(
+    species == 'Engraulis mordax' ~ '#F0944C',
+    species == 'Scomber japonicus' ~ '#B2B9BC',
+    species == 'Sardinops sagax' ~ '#AB4E68',
+    species == 'Trachurus symmetricus' ~ '#CDA59B',
+    species == 'Thaleichthys pacificus' ~ '#A3A55F',
+    species == 'Clupea pallasii' ~ '#41959A',
+    species == 'Sebastes entomelas' ~ '#97D8CA',
+    species == 'Tarletonbeania crenularis' ~ '#C47688',
+    species == 'Stenobrachius leucopsarus' ~ '#679C74',
+    species == 'Tactostoma macropus' ~ '#b4e5dd',
+    species == 'Leuroglossus stilbius' ~ '#EEB357',
+    species == 'Merluccius productus' ~ '#2E92A2',
+    species == 'Microstomus pacificus' ~ '#D85A44')) %>% 
+  deframe()
+
+utm_km_crs <- "+proj=utm +zone=10 +datum=WGS84 +units=km +no_defs"
+
+coaststates <- ne_states(country='United States of America',returnclass = 'sf') %>% 
+  filter(name %in% c('California','Oregon','Washington','Nevada')) %>% 
+  st_transform(st_crs(.))
+
+```
+
+```{r fig.width=10, fig.height=13, out.width="100%",warning=FALSE, message=FALSE}
+# Figure 2 ------------------------------------------------------------------------------------
+plot_list <- list()
+
+legend <- cowplot::get_legend(
+  ggplot() +
+    geom_sf(data = preds[[1]], aes(fill = exp(est)), color = NA) +
+    scale_fill_gradientn(colors = c(rep('#00496F', 2),pnw_palette(name = "Bay", n = 14, type = "continuous"),rep('#DD4124', 3)),
+      name = "Estimated eDNA\nconcentration\n(copies/L)",
+      trans = log_trans(base = exp(1)),
+      limits = c(0.05, 200000),
+      breaks = c(0.1, 1, 10, 100, 1000, 10000, 100000),
+      labels = c('0.1', "1", "10", "100", "1000", "10000", '100000')) +
+    theme_bw() +
+    theme(plot.title = element_text(face = "italic"),
+          panel.spacing = unit(0.05, "lines"),
+          legend.key.height = unit(0.8, "cm"),
+          axis.text.x = element_text(angle = 90,vjust = 0.5,hjust = 1),
+          panel.background = element_rect(fill = 'white'),
+          panel.grid.major = element_line(color = "gray80", linetype = "dashed"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 12)) +
+    theme(legend.justification = c(0, 0.5)))
+
+for (i in 1:length(sp_list)) {
+  plot_list[[i]] <-
+    ggplot() +
+    geom_sf(data = coast_line, fill = 'gray80') +
+    geom_sf(data = preds[[i]], aes(fill = exp(est)), color = NA) +
+    ggtitle(paste0(sp_list[i])) +
+    scale_fill_gradientn(colors = c(rep('#00496F', 6),pnw_palette(name = "Bay", n = 14, type = "continuous"),rep('#DD4124', 7)),
+      name = "Estimated eDNA\nconcentration\n(copies/L)",
+      trans = log_trans(base = exp(1)),
+      limits = c(0.001, 10000000),
+      breaks = c(0.1, 1, 10, 100, 1000, 10000, 100000),
+      labels = c('0.1', "1", "10", "100", "1000", "10000", '100000')) +
+    facet_wrap( ~ depth_cat, nrow = 1) +
+    ylim(dat_bbox$ymin, dat_bbox$ymax) +
+    scale_x_continuous(limits = c(dat_bbox$xmin, dat_bbox$xmax),breaks = c(-125.5, -124)) +
+    theme_bw() +
+    theme(legend.position = "none",
+          plot.title = element_text(face = "italic"),
+          panel.spacing = unit(0.05, "lines"),
+          axis.text.x = element_text(angle = 90,vjust = 0.5,hjust = 1),
+          panel.background = element_rect(fill = 'white'),
+          panel.grid.major = element_line(color = "gray80", linetype = "dashed"),
+          panel.grid.minor = element_blank())
+  }
+
+
+# Load the depth scheme graph
+depth_scheme <- image_read(here('raw_plots','Literature_species_dist_1.jpg'))
+depth_scheme_plot <- ggdraw() + draw_image(depth_scheme)
+
+# Create titles for columns
+title_epipelagic <- ggdraw() + 
+  draw_plot(
+    ggplot() + 
+      geom_rect(aes(xmin = 0, xmax = 1, ymin = 0, ymax = 1), fill = "#b65971", color = NA) +
+      theme_void()
+  ) +
+  draw_label("Surface", fontface = 'bold', size = 14, color = "white")
+
+title_mesopelagic <- ggdraw() + 
+  draw_plot(
+    ggplot() + 
+      geom_rect(aes(xmin = 0, xmax = 1, ymin = 0, ymax = 1), fill = "#86a180", color = NA) +
+      theme_void()
+  ) +
+  draw_label("Midwater", fontface = 'bold',size = 14, color = "white")
+
+title_bathypelagic <- ggdraw() + 
+  draw_plot(
+    ggplot() + 
+      geom_rect(aes(xmin = 0, xmax = 1, ymin = 0, ymax = 1), fill = "#559891", color = NA) +
+      theme_void()
+  ) +
+  draw_label("Deepwater", fontface = 'bold',size = 14, color = "white")
+
+
+pp1 <- 
+  cowplot::plot_grid(
+    plot_list[[2]]+
+      theme(axis.text.x = element_blank(), 
+            plot.margin = unit(c(0, 0.1, 0, 0), "cm")),
+    plot_list[[7]]+
+      theme(axis.text.x = element_blank())+
+      theme(axis.text.y = element_blank(),
+            plot.margin = unit(c(0, 0.1, 0, 0), "cm")),
+    plot_list[[9]]+
+      theme(axis.text.x = element_blank())+
+      theme(axis.text.y = element_blank(),
+            plot.margin = unit(c(0, 0.1, 0, 0), "cm")),
+    plot_list[[5]]+
+      theme(plot.margin = unit(c(0, 0.1, 0, 0), "cm")),
+    plot_list[[8]]+
+      theme(axis.text.y = element_blank(),
+            plot.margin = unit(c(0, 0.1, 0, 0), "cm")), 
+    plot_list[[4]]+
+      theme(axis.text.y = element_blank(),
+            plot.margin = unit(c(0, 0.1, 0, 0), "cm")),
+    nrow = 2,
+    rel_widths = c(1.11, 1, 1),
+    rel_heights = c(1, 1.2)
+  )
+
+pp2 <- cowplot::plot_grid(cowplot::plot_grid(ggplot() + theme_void(),title_epipelagic, title_mesopelagic, title_bathypelagic, ncol = 4,rel_widths = c(1,10,10,10)),
+                          pp1,
+                          nrow = 2, rel_heights = c(0.03, 1))
+
+pp3 <- cowplot::plot_grid(pp2,legend,nrow = 1,rel_widths = c(1,0.15))
+
+fig_2 <- cowplot::plot_grid(pp3,depth_scheme_plot,nrow=2,rel_heights = c(11,7), labels = c('(A)','(B)'),label_x = 0.85)
+fig_2
+
+# ggsave(
+#   # file = here('plots','2_Figure_2.pdf'),
+#   file = here('plots','2_Figure_2.jpg'),
+#   fig_2,
+#   width = 10,height = 13,units='in',bg='white')
+```
+
+```{r fig.width=14, fig.height=14, out.width="100%",warning=FALSE, message=FALSE}
+# Figure 3 ------------------------------------------------------------------------------------
+
+pred_corr <-
+  preds_all %>%
+  mutate(species=ifelse(species=="Zz_Merluccius productus","Merluccius productus",species)) %>% 
+  mutate(coor=paste0(utm.lon.km,'-',utm.lat.km,'-',depth_cat)) %>% 
+  dplyr::select(species,est,coor) %>% 
+  pivot_wider(names_from = "species",values_from="est") %>% as.data.frame() %>% 
+  dplyr::select(-coor,-`Merluccius productus`) %>% 
+  dplyr::select(c(
+    'Scomber japonicus',
+    'Sardinops sagax',
+    'Engraulis mordax',
+    'Thaleichthys pacificus',
+    'Trachurus symmetricus',
+    'Clupea pallasii',
+    'Sebastes entomelas',
+    'Tarletonbeania crenularis',
+    'Stenobrachius leucopsarus',
+    'Tactostoma macropus',
+    'Leuroglossus stilbius',
+    'Microstomus pacificus')) %>% 
+  cor()
+
+
+species <- rownames(pred_corr)
+n <- length(species)
+
+# --- Long format ---
+corr_df <- pred_corr %>%
+  as.data.frame() %>%
+  rownames_to_column("row_sp") %>%
+  pivot_longer(-row_sp, names_to = "col_sp", values_to = "r") %>%
+  mutate(orig_row = match(row_sp, species),
+         orig_col = match(col_sp, species))
+
+lower_df <- corr_df %>% filter(orig_row >= orig_col)  # numbers (lower + diagonal)
+upper_df <- corr_df %>% filter(orig_row <  orig_col)  # ellipses (upper)
+
+# --- Ellipse paths ---
+t_vals  <- seq(0, 2 * pi, length.out = 100)
+angle   <- pi / 4
+scale_e <- 0.45
+
+ellipse_df <- upper_df %>%
+  rowwise() %>%
+  mutate(pts = list({
+    a <- sqrt(max(1 + r, 1e-4)) * scale_e
+    b <- sqrt(max(1 - r, 1e-4)) * scale_e
+    tibble(
+      x_plot = orig_col          + a*cos(t_vals)*cos(angle) - b*sin(t_vals)*sin(angle),
+      y_plot = (n + 1 - orig_row) + a*cos(t_vals)*sin(angle) + b*sin(t_vals)*cos(angle)
+    )
+  })) %>%
+  unnest(pts)
+
+# --- Color palette ---
+my_cols <- c('#6a0b1f','#b1192b','#d55f4c','grey','#4090c2','#2063a8','#063061')
+
+# Pillar colors matching image 2
+pillar_fill <- c("#b05572", "#748a4e", "#3e7878")
+
+fig_3 <-
+  ggplot() +
+  # --- all your existing layers stay the same ---
+  geom_polygon(data = ellipse_df, aes(x = x_plot, y = y_plot,
+                                      group = paste0(orig_row, "_", orig_col), fill = r), color = NA) +
+  geom_text(data = lower_df, aes(x = orig_col, y = n + 1 - orig_row,
+                                 label = sprintf("%.2f", r), color = r), fontface = "bold", size = 2.8) +
+  geom_segment(
+    aes(x = 0.5, xend = 12.5, y = 10.5, yend = 10.5),
+    linetype = "dashed",
+    linewidth = 0.4) +
+  geom_segment(
+    aes(x = 0.5, xend = 12.5, y = 6.5, yend = 6.5),
+    linetype = "dashed",
+    linewidth = 1) +
+  geom_segment(
+    aes(x = 0.5, xend = 12.5, y = 3.5, yend = 3.5),
+    linetype = "dashed",
+    linewidth = 1) +
+  geom_segment(
+    aes(x = 2.5, xend = 2.5, y = 0.5, yend = 12.5),
+    linetype = "dashed",
+    linewidth = 0.4) +
+  geom_segment(
+    aes(x = 6.5, xend = 6.5, y = 0.5, yend = 12.5),
+    linetype = "dashed",
+    linewidth = 1.0) +
+  geom_segment(
+    aes(x = 9.5, xend = 9.5, y = 0.5, yend = 12.5),
+    linetype = "dashed",
+    linewidth = 1.0)+
+  # --- NEW: pillar rectangles (drawn before vlines so lines sit on top) ---
+  annotate("rect",
+           xmin = c(0.5, 6.5, 9.5), xmax = c(6.5, 9.5, 12.5),
+           ymin = 17.5, ymax = 18.2,
+           fill = pillar_fill, color = NA
+  ) +
+  annotate("text",
+           x = c(3.5, 8.0, 11.0), y = 17.9,
+           label = c("Surface", "Midwater", "Deepwater"),
+           color = "white", fontface = "bold", size = 4
+  ) +
+  # --- NEW: manual italic column labels (replaces scale_x axis text) ---
+  annotate("text",
+           x = 1:n, y = rep(12.8, n),
+           label = species,
+           angle = 90, hjust = 0, vjust = 0.5,
+           fontface = "italic", size = 3.1, color = "black"
+  ) +
+  # --- scales ---
+  scale_fill_gradientn(colors = my_cols, limits = c(-1,1), name = NULL,
+                       breaks = seq(-1,1,by=0.2),
+                       guide = guide_colorbar(barwidth=1, barheight=12, direction="vertical")) +
+  scale_color_gradientn(colors = my_cols, 
+                        limits = c(-1,1), guide = "none") +
+  
+  # x-axis: remove auto labels (we placed them manually above)
+  scale_x_continuous(
+    breaks = NULL,
+    position = "top"
+    # expand = expansion(add = 0.5)
+  ) +
+  # y-axis: expand top to give room for labels + pillars
+  scale_y_continuous(
+    breaks = 1:n, labels = rev(species)
+    # expand = expansion(add = c(0.5, 8))   # <-- 8 units of extra space at top
+  ) +
+  coord_fixed() +
+  theme_minimal() +
+  theme(
+    axis.text.y     = element_text(face = "italic", size = 9,color='black'),
+    axis.title      = element_blank(),
+    panel.grid      = element_blank(),
+  )
+
+fig_3
+
+# ggsave(
+#   file = here('plots','3_Figure_3.pdf'),
+#   # file = here('plots','3_Figure_3.jpg'),
+#   fig_3,
+#   width = 7,height=7,units='in',bg='white')
+```
+
+```{r fig.width=8.5, fig.height=13, out.width="100%",warning=FALSE, message=FALSE}
+# Figure 4 ------------------------------------------------------------------------------------
+
+pred_summary <- preds_summ %>% 
+  ungroup() %>% 
+  st_drop_geometry() %>%
+  # mutate(is_abun=quant>=0.75) %>%
+  mutate(is_pres=est>0.07) %>% #threshold determining presence
+  filter(species%in%spp_all) %>% 
+  # filter(species=='Merluccius productus') %>%
+  group_by(grID,depth_cat) %>% 
+  summarise(num_spp=sum(is_pres),
+            tot_DNA=sum(exp(est))) %>% 
+  ungroup() %>% 
+  left_join(predgrid,by=c("grID","depth_cat")) %>% 
+  st_as_sf()
+
+species_richness_map <- 
+  ggplot() +
+  geom_sf(data = coast_line, fill = 'gray80') +
+  geom_sf(data = pred_summary, aes(fill = factor(num_spp)), color = NA) +
+  scale_fill_viridis_d(option = "D") +
+  coord_sf(xlim = c(dat_bbox[1], dat_bbox[3]), 
+           ylim = c(dat_bbox[2], dat_bbox[4]), 
+           expand = FALSE) +
+  facet_wrap(~depth_cat, nrow = 1) +
+  labs(fill = "Accumulated number of\nspecies defined as 'present'\non smoothed estimated DNA\n(SDM)") +
+  theme_bw() +
+  scale_fill_viridis_d(option = "D") +
+  theme(
+    panel.background = element_rect(fill = 'white'),
+    panel.grid.major = element_line(color = "gray80", linetype = "dashed"),
+    panel.grid.minor = element_blank())+
+  scale_x_continuous(breaks = c(-125.5, -124))
+
+total_dna_map <- 
+  pred_summary %>% 
+  ggplot() +
+  geom_sf(aes(fill = tot_DNA), color = NA) +  # Keep fill as raw data (normal scale)
+  geom_sf(data = coast_line, fill = 'gray80') +
+  scale_fill_gradientn(
+    colors = c('#00496F','#066384','#33a4a7','#9aca9f','#ffa451','#d7433b','#d7433b'), # Your custom colors
+    name = "Accumulated DNA\nconcentration for all species\n(copies / L)",
+    trans = "log10",
+    limits=c(10,20000000),
+    breaks = c(10, 100, 1000,10000,100000,1000000,10000000),
+    labels = c("10", "100", "1000","10000","100000",'1000000','10000000')) +
+  coord_sf(xlim = c(dat_bbox[1], dat_bbox[3]), 
+           ylim = c(dat_bbox[2], dat_bbox[4]), 
+           expand = FALSE) +
+  facet_wrap(~depth_cat, nrow = 1) +
+  xlim(dat_bbox[1], dat_bbox[3]) +
+  ylim(dat_bbox[2], dat_bbox[4]) +
+  theme_bw()+
+  theme(
+    panel.background = element_rect(fill = 'white'),
+    panel.grid.major = element_line(color = "gray80", linetype = "dashed"),
+    panel.grid.minor = element_blank())+
+  scale_x_continuous(breaks = c(-125.5, -124))
+
+
+fig_4 <- cowplot::plot_grid(species_richness_map,total_dna_map,ncol = 1,align = 'v',labels=c('A','B'))
+fig_4
+# ggsave(
+# #   file = here('plots','4_Figure_4.pdf'),
+#   file = here('plots','4_Figure_4.jpg'),
+#   fig_4,
+#   h=13,w=8.5,units='in',bg='white')
+```
+
+```{r fig.width=14, fig.height=12, out.width="100%",warning=FALSE, message=FALSE}
+# Figure 5 -------------------------------------------------------------------------------------
+
+## Figure 5a -----------------------------------------------------------------------------------
+facet_colors <- c("Surface-South" = "#b65971","Surface-North" = "#b65971", "Midwater" = "#86a180", "Deepwater" = "#559891")
+
+color_mapping <-
+  fit %>% distinct(species) %>% head(-1) %>% pull(species) %>% 
+  as.data.frame() %>% setNames('species') %>% 
+  mutate(col = case_when(
+    species == 'Engraulis mordax' ~ '#F0944C',
+    species == 'Scomber japonicus' ~ '#B2B9BC',
+    species == 'Sardinops sagax' ~ '#AB4E68',
+    species == 'Trachurus symmetricus' ~ '#CDA59B',
+    species == 'Thaleichthys pacificus' ~ '#A3A55F',
+    species == 'Clupea pallasii' ~ '#41959A',
+    species == 'Sebastes entomelas' ~ '#97D8CA',
+    species == 'Tarletonbeania crenularis' ~ '#C47688',
+    species == 'Stenobrachius leucopsarus' ~ '#679C74',
+    species == 'Tactostoma macropus' ~ '#b4e5dd',
+    species == 'Leuroglossus stilbius' ~ '#EEB357',
+    species == 'Microstomus pacificus' ~ '#D85A44')) %>% 
+  deframe()
+
+depth_summary_fit <-
+  fit %>% mutate(D_est = exp(Log_D_est)) %>%
+  # preds_summ %>% mutate(D_est = exp(est)) %>%
+  filter(!species == 'Zz_Merluccius productus') %>% 
+  # filter(D_est > exp(-2.5)) %>%
+  group_by(depth =  as.factor(depth_cat), species) %>%
+  summarize(
+    mean_D_est = mean(D_est),
+    q_05 = quantile(D_est, 0.025),
+    q_95 = quantile(D_est, 0.995),
+    .groups = "drop") %>%
+  mutate(depth=as.numeric(as.character(depth))*-1) %>%
+  mutate(mean_D_est = if_else(mean_D_est<0.1,0.1,mean_D_est)) %>% 
+  mutate(q_05 = if_else(q_05<0.1,0.1,q_05)) %>% 
+  mutate(q_95 = if_else(q_95<0.1,0.1,q_95)) %>% 
+  mutate(guild=
+           if_else(species%in%c('Engraulis mordax',
+                                'Thaleichthys pacificus',
+                                'Clupea pallasii',
+                                'Trachurus symmetricus'),
+                   'Surface-North',NA)) %>% 
+  mutate(guild=
+           if_else(species%in%c('Sardinops sagax',
+                                'Scomber japonicus'),
+                   'Surface-South',guild)) %>% 
+  mutate(guild = 
+           if_else(species%in%c('Sebastes entomelas',
+                                'Tarletonbeania crenularis',
+                                'Stenobrachius leucopsarus'),
+                   'Midwater',guild)) %>% 
+  mutate(guild = 
+           if_else(species%in%c('Tactostoma macropus',
+                                'Leuroglossus stilbius',
+                                'Microstomus pacificus'),
+                   'Deepwater',guild)) %>% 
+  mutate(guild = factor(guild, levels = c("Surface-South",'Surface-North',"Midwater", "Deepwater"))) %>% 
+  mutate(depth_jitter=depth)
+
+depth_summary_fit$species <- factor(depth_summary_fit$species, levels = c(
+  'Sardinops sagax',
+  'Scomber japonicus',
+  'Clupea pallasii',
+  'Thaleichthys pacificus',
+  'Trachurus symmetricus',
+  'Engraulis mordax',
+  'Sebastes entomelas',
+  'Tarletonbeania crenularis',
+  'Stenobrachius leucopsarus',
+  'Tactostoma macropus',
+  'Leuroglossus stilbius',
+  'Microstomus pacificus'
+))
+
+
+# Create subsets for groups
+group1 <- c("Sardinops sagax", "Scomber japonicus")
+group2 <- c("Clupea pallasii", "Thaleichthys pacificus", "Trachurus symmetricus", "Engraulis mordax")
+group3 <- c("Sebastes entomelas", "Tarletonbeania crenularis", "Stenobrachius leucopsarus")
+group4 <- c("Tactostoma macropus", "Leuroglossus stilbius", "Microstomus pacificus")
+
+# Legend plots for each group
+legend1 <- depth_summary_fit %>%
+  ggplot(aes(y = mean_D_est, x = depth_jitter, color = species, group = species)) +
+  geom_errorbar(aes(x = depth_jitter, ymin = mean_D_est, ymax = q_95), alpha = 0.4, width = 12, lty = 5) +
+  geom_point(size = 3) +
+  scale_color_manual(values = color_mapping[group1], breaks = group1, guide = guide_legend(title = "Surface-South")) +
+  theme_bw()+
+  theme(legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12,face = "italic"))
+
+legend2 <- depth_summary_fit %>%
+  ggplot(aes(y = mean_D_est, x = depth_jitter, color = species, group = species)) +
+  geom_errorbar(aes(x = depth_jitter, ymin = mean_D_est, ymax = q_95), alpha = 0.4, width = 12, lty = 5) +
+  geom_point(size = 3) +
+  scale_color_manual(values = color_mapping[group2], breaks = group2, guide = guide_legend(title = "Surface-North")) +
+  theme_bw()+
+  theme(legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12,face = "italic"))
+
+legend3 <- depth_summary_fit %>%
+  ggplot(aes(y = mean_D_est, x = depth_jitter, color = species, group = species)) +
+  geom_errorbar(aes(x = depth_jitter, ymin = mean_D_est, ymax = q_95), alpha = 0.4, width = 12, lty = 5) +
+  geom_point(size = 3) +
+  scale_color_manual(values = color_mapping[group3], breaks = group3, guide = guide_legend(title = "Midwater")) +
+  theme_bw()+
+  theme(legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12,face = "italic"))
+
+legend4 <- depth_summary_fit %>%
+  ggplot(aes(y = mean_D_est, x = depth_jitter, color = species, group = species)) +
+  geom_errorbar(aes(x = depth_jitter, ymin = mean_D_est, ymax = q_95), alpha = 0.4, width = 12, lty = 5) +
+  geom_point(size = 3) +
+  scale_color_manual(values = color_mapping[group4], breaks = group4, guide = guide_legend(title = "Deepwater")) +
+  theme_bw()+
+  theme(legend.title = element_text(size = 14),
+        legend.text = element_text(size = 12,face = "italic"))
+
+# Extract legends
+leg1 <- cowplot::get_legend(legend1+theme(legend.justification = c(0.5, -0.75)))
+leg2 <- cowplot::get_legend(legend2+theme(legend.justification = c(0.5, -0.2)))
+leg3 <- cowplot::get_legend(legend3+theme(legend.justification = c(0.5, 0.7)))
+leg4 <- cowplot::get_legend(legend4+theme(legend.justification = c(0.5, 1.5)))
+
+# Combine legends with spacing
+final_legend <- cowplot::plot_grid(
+  leg1, leg2, leg3, leg4,
+  ncol = 1, align = 'v',
+  rel_heights = c(1, 1, 1, 1) # Add space between groups
+)
+
+# cowplot::ggdraw(final_legend)
+
+p_legend <- depth_summary_fit %>% 
+  ggplot(aes(y = mean_D_est, x = depth_jitter, color = species, group = species)) +
+  geom_errorbar(aes(x = depth_jitter, ymin = mean_D_est, ymax = q_95), alpha = 0.4, width = 12, lty = 5) +
+  geom_point(size = 3) +
+  scale_color_manual(values = color_mapping)+
+  labs(y = "Estimated eDNA concentration (copies/μL)", x = "Depth (m)", color = "Species") +
+  theme_bw()
+
+p_leg <- cowplot::get_legend(p_legend+
+                               theme(legend.justification = c(0,0.5)))
+
+dep_spec_prob <- purrr::map(
+  levels(depth_summary_fit$species), 
+  function(x) {
+    d <- depth_summary_fit %>%
+      filter(species == x) %>%
+      group_by(species) %>%
+      mutate(prop = mean_D_est / sum(mean_D_est)) %>% 
+      ungroup() %>% 
+      dplyr::select(species,mean_D_est,depth,prop,guild)
+    return(d)
+  }
+)
+
+# Function to sample from each species in the list
+sample_from_species <- function(tibble_data, sample_size = 10000) {
+  tibble_data %>%
+    summarise(
+      species = unique(species),
+      sampled_dep_values = list(sample(depth, size = sample_size, replace = TRUE, prob = prop))
+    )
+}
+
+# Sample lat from each each species from the PDF
+sampled_data <- lapply(dep_spec_prob, sample_from_species) %>% 
+  bind_rows(.) %>%
+  unnest(sampled_dep_values) %>% 
+  left_join(.,depth_summary_fit %>% ungroup() %>% distinct(species,guild),
+            by='species')
+
+plots <- purrr::map(
+  levels(depth_summary_fit$guild),
+  function(x) {
+    p <- depth_summary_fit %>%
+      filter(guild == x) %>%
+      ggplot(aes(y = mean_D_est, x = depth_jitter, color = species, group = species)) +
+      geom_errorbar(aes(x = depth_jitter, ymin = mean_D_est, ymax = q_95), alpha = 0.5, width = 0,size=1 ,lty = 1) +
+      geom_point(size = 3,alpha=0.7) +
+      # geom_smooth(aes(color = species, group = species), method = "loess", span = 0.5, lty = 1, size = 0.6, alpha = 0.5, se = F) +
+      geom_line(aes(color = species, group = species), lty = 1, size = 0.7, alpha = 0.7) +
+      facet_grid(~guild, scales = "free_x") +
+      scale_color_manual(values = color_mapping) +
+      xlim(limits = c(-508,8))+
+      scale_y_log10(limits = c(10^-1,10^6.5),labels=scientific) +
+      labs(y = NULL,
+           x = "Depth (m)", color = "Species") +
+      coord_flip() +
+      theme_bw() +
+      theme(
+        legend.position = 'none',
+        strip.text = element_text(face = "bold", size = 12, color = "white"),
+        strip.background = element_rect(fill = facet_colors[x], color = "black"),
+        axis.text.x = element_text(size = 12),
+        # axis.ticks.x = element_blank(),
+        axis.title.y = if (x == levels(depth_summary_fit$guild)[1]) element_text(size = 13) else element_blank(),
+        axis.text.y = if (x == levels(depth_summary_fit$guild)[1]) element_text(size = 12) else element_blank(),
+        axis.ticks.y = if (x == levels(depth_summary_fit$guild)[1]) element_line() else element_blank()
+      )
+    return(p)
+  }
+)
+
+
+# p1 <- cowplot::plot_grid(plotlist = plots, nrow = 1,align='h',rel_widths = c(10,9,9,9))
+p1 <-
+  cowplot::plot_grid(plotlist = plots, nrow = 1,align='h',rel_widths = c(10,9,9,9)) %>%
+  cowplot::ggdraw()+
+  theme(plot.margin = margin(t = 2, r = 2, b = 25, l = 2))+
+  cowplot::draw_label(
+    # expression("Estimated" ~ sqrt("eDNA concentration") ~ "(copies/μL)"), 
+    "Estimated eDNA concentration (copies/L)",
+    x = 0.5, y = -0.01,
+    hjust = 0.5, vjust = 0.5,
+    angle = 0,
+    size = 13)
+
+# p1
+
+## Figure 5b -----------------------------------------------------------------------------------
+
+lat_summary_fit <-
+  fit %>% mutate(D_est = exp(Log_D_est)) %>% 
+  filter(!species == 'Merluccius productus') %>% 
+  group_by(lat,lon,species) %>% 
+  summarize(
+    xy_D_est = sum(D_est),
+    .groups = "drop") %>% 
+  mutate(lat_bin=(round(lat*2)/2)) %>% 
+  group_by(lat_bin,species) %>%
+  summarise(mean_D=mean(xy_D_est),
+            q_2=quantile(xy_D_est,0.025),
+            q_97=quantile(xy_D_est,0.975)) %>%
+  mutate(guild=
+           if_else(species%in%c('Engraulis mordax',
+                                'Thaleichthys pacificus',
+                                'Clupea pallasii',
+                                'Trachurus symmetricus'),
+                   'Surface-North',NA)) %>% 
+  mutate(guild=
+           if_else(species%in%c('Sardinops sagax',
+                                'Scomber japonicus'),
+                   'Surface-South',guild)) %>% 
+  mutate(guild = 
+           if_else(species%in%c('Sebastes entomelas',
+                                'Tarletonbeania crenularis',
+                                'Stenobrachius leucopsarus'),
+                   'Midwater',guild)) %>% 
+  mutate(guild = 
+           if_else(species%in%c('Tactostoma macropus',
+                                'Leuroglossus stilbius',
+                                'Microstomus pacificus'),
+                   'Deepwater',guild)) %>% 
+  mutate(mean_D=if_else(mean_D<1,0.1,mean_D)) %>%
+  mutate(q_97=if_else(q_97<1,0.1,q_97)) %>%
+  mutate(q_2=if_else(q_2<1,0.1,q_2)) %>%
+  mutate(guild = factor(guild, levels = c("Surface-South", "Surface-North",'Midwater',"Deepwater"))) 
+
+
+lat_spec_prob <- purrr::map(
+  unique(depth_summary_fit$species),
+  function(x) {
+    d <- lat_summary_fit %>%
+      # mutate(mean_D=log(mean_D)-log(0.1)) %>%
+      mutate(mean_D=sqrt(mean_D)) %>%
+      filter(species == x) %>%
+      group_by(species) %>%
+      mutate(prop = mean_D / sum(mean_D)) %>%
+      ungroup() %>%
+      dplyr::select(species,mean_D,lat_bin,prop)
+    return(d)
+  }
+)
+
+# Function to sample from each species in the list
+sample_from_species <- function(tibble_data, sample_size = 1000) {
+  tibble_data %>%
+    summarise(
+      species = unique(species),
+      sampled_lat_values = list(sample(lat_bin, size = sample_size, replace = TRUE, prob = prop))
+    )
+}
+
+# Sample lat from each each species from the PDF
+sampled_data <- lapply(lat_spec_prob, sample_from_species) %>% 
+  bind_rows(.) %>%
+  unnest(sampled_lat_values) %>% 
+  left_join(.,lat_summary_fit %>% ungroup() %>% distinct(species,guild),
+            by='species')
+
+plots <- 
+  purrr::map(
+    levels(depth_summary_fit$guild), 
+    function(x) {
+      p <-sampled_data %>% 
+        filter(guild == x) %>% 
+        ggplot(aes(y=species,x=sampled_lat_values,fill = species))+
+        geom_density_ridges(bandwidth=0.3)+
+        scale_fill_manual(values = color_mapping) +
+        facet_wrap(~guild)+
+        # scale_y_sqrt()+
+        coord_flip()+
+        labs(x = 'Latitude (°)')+
+        theme_bw()+
+        scale_x_continuous(breaks = seq(38, 50, by = 1),limits=c(38,49)) +
+        theme(legend.position = 'none',
+              strip.text = element_text(face = "bold", size = 13, color = "white"),
+              strip.background = element_rect(fill = facet_colors[x], color = "black"),
+              axis.title.y = if (x == levels(lat_summary_fit$guild)[1]) element_text() else element_blank(),
+              axis.text.y = if (x == levels(lat_summary_fit$guild)[1]) element_text() else element_blank(),
+              axis.ticks.y = if (x == levels(lat_summary_fit$guild)[1]) element_line() else element_blank(),
+              axis.title.x = element_blank(),
+              axis.text.x = element_blank(),
+              axis.ticks.x = element_blank())
+      return(p)
+    }
+  )
+
+p2 <-
+  cowplot::plot_grid(plotlist = plots, nrow = 1,align='h',rel_widths = c(2,4,3,3))+
+  # cowplot::ggdraw()+
+  theme(plot.margin = margin(t = 2, r = 2, b = 25, l = 2))+
+  cowplot::draw_line(x = c(0.03, 1.0),y = c(0.68, 0.68),
+                     color = "black", size = 0.5, linetype = "dashed") +
+  cowplot::draw_line(x = c(0.03, 1.0),y = c(0.515, 0.515),
+                     color = "black", size = 0.5, linetype = "dashed") +
+  cowplot::draw_label(
+    "Columbia river", 
+    x = 0.947, y = 0.7, hjust = 0.5, vjust = 0.5, angle = 0, size = 12)+
+  cowplot::draw_label(
+    "Heceta bank", 
+    x = 0.95, y = 0.532, hjust = 0.5, vjust = 0.5, angle = 0, size = 12)+
+  cowplot::draw_label(
+    "Probability Density Function (PDF) of estimated eDNA concentration (copies/L)",
+    x = 0.5, y = -0.01, hjust = 0.5, vjust = 0.5, angle = 0, size = 12)
+
+p3 <- cowplot::plot_grid(p1,p2,nrow = 2,rel_heights = c(11,16),align = 'v',labels = c('A','B'))
+fig_5 <- cowplot::plot_grid(p3,final_legend,ncol = 2,rel_widths = c(6,1.3))
+fig_5
+
+# ggsave(file = here('plots','5_Figure_5.jpg'),
+#        fig_5,
+#        h=12,w=14,units='in',bg='white')
+```
+
+```{r fig.width=10, fig.height=13, out.width="100%",warning=FALSE, message=FALSE}
+# Supplementary Figure 2 ----------------------------------------------------------------------
+plot_list <- list()
+
+legend <- cowplot::get_legend(
+  ggplot() +
+    geom_sf(data = preds[[1]], aes(fill = exp(est)), color = NA) +
+    scale_fill_gradientn(colors = c(rep('#00496F', 2),pnw_palette(name = "Bay", n = 14, type = "continuous"),rep('#DD4124', 3)),
+                         name = "Estimated eDNA\nconcentration\n(copies/L)",
+                         trans = log_trans(base = exp(1)),
+                         limits = c(0.05, 200000),
+                         breaks = c(0.1, 1, 10, 100, 1000, 10000, 100000),
+                         labels = c('0.1', "1", "10", "100", "1000", "10000", '100000')) +
+    theme_bw() +
+    theme(plot.title = element_text(face = "italic"),
+          panel.spacing = unit(0.05, "lines"),
+          legend.key.height = unit(0.8, "cm"),
+          axis.text.x = element_text(angle = 90,vjust = 0.5,hjust = 1),
+          panel.background = element_rect(fill = 'white'),
+          panel.grid.major = element_line(color = "gray80", linetype = "dashed"),
+          panel.grid.minor = element_blank(),
+          legend.text = element_text(size = 12)) +
+    theme(legend.justification = c(0, 0.5)))
+
+for (i in 1:length(sp_list)) {
+  plot_list[[i]] <-
+    ggplot() +
+    geom_sf(data = coast_line, fill = 'gray80') +
+    geom_sf(data = preds[[i]], aes(fill = exp(est)), color = NA) +
+    ggtitle(paste0(sp_list[i])) +
+    scale_fill_gradientn(colors = c(rep('#00496F', 6),pnw_palette(name = "Bay", n = 14, type = "continuous"),rep('#DD4124', 7)),
+                         name = "Estimated eDNA\nconcentration\n(copies/L)",
+                         trans = log_trans(base = exp(1)),
+                         limits = c(0.001, 10000000),
+                         breaks = c(0.1, 1, 10, 100, 1000, 10000, 100000),
+                         labels = c('0.1', "1", "10", "100", "1000", "10000", '100000')) +
+    facet_wrap( ~ depth_cat, nrow = 1) +
+    ylim(dat_bbox$ymin, dat_bbox$ymax) +
+    scale_x_continuous(limits = c(dat_bbox$xmin, dat_bbox$xmax),breaks = c(-125.5, -124)) +
+    theme_bw() +
+    theme(legend.position = "none",
+          plot.title = element_text(face = "italic"),
+          panel.spacing = unit(0.05, "lines"),
+          axis.text.x = element_text(angle = 90,vjust = 0.5,hjust = 1),
+          panel.background = element_rect(fill = 'white'),
+          panel.grid.major = element_line(color = "gray80", linetype = "dashed"),
+          panel.grid.minor = element_blank())
+}
+
+
+depth_scheme <- image_read(here('raw_plots','Literature_species_dist_2.jpg'))
+depth_scheme_plot <- ggdraw() + draw_image(depth_scheme)
+
+# Create titles for columns
+title_epipelagic <- ggdraw() + 
+  draw_plot(
+    ggplot() + 
+      geom_rect(aes(xmin = 0, xmax = 1, ymin = 0, ymax = 1), fill = "#b65971", color = NA) +
+      theme_void()
+  ) +
+  draw_label("Surface", fontface = 'bold', size = 14, color = "white")
+
+title_mesopelagic <- ggdraw() + 
+  draw_plot(
+    ggplot() + 
+      geom_rect(aes(xmin = 0, xmax = 1, ymin = 0, ymax = 1), fill = "#86a180", color = NA) +
+      theme_void()
+  ) +
+  draw_label("Midwater", fontface = 'bold',size = 14, color = "white")
+
+
+pp1 <- 
+  cowplot::plot_grid(
+    plot_list[[1]]+
+      theme(axis.text.x = element_blank(), 
+            plot.margin = unit(c(0, 0.1, 0, 0), "cm")),
+    plot_list[[6]]+
+      theme(axis.text.x = element_blank())+
+      theme(axis.text.y = element_blank(),
+            plot.margin = unit(c(0, 0.1, 0, 0), "cm")),
+    plot_list[[3]]+
+      theme(axis.text.x = element_blank())+
+      theme(axis.text.y = element_blank(),
+            plot.margin = unit(c(0, 0.1, 0, 0), "cm")),
+    plot_list[[12]]+
+      theme(plot.margin = unit(c(0, 0.1, 0, 0), "cm")),
+    plot_list[[11]]+
+      theme(axis.text.y = element_blank(),
+            plot.margin = unit(c(0, 0.1, 0, 0), "cm")), 
+    plot_list[[10]]+
+      theme(axis.text.y = element_blank(),
+            plot.margin = unit(c(0, 0.1, 0, 0), "cm")),
+    nrow = 2,
+    rel_widths = c(1.11, 1, 1),
+    rel_heights = c(1, 1.2)
+  )
+
+pp2 <- cowplot::plot_grid(cowplot::plot_grid(ggplot() + theme_void(),title_epipelagic, title_mesopelagic, ncol = 3,rel_widths = c(1,20,10)),
+                          pp1,
+                          nrow = 2, rel_heights = c(0.03, 1))
+
+pp3 <- cowplot::plot_grid(pp2,legend,nrow = 1,rel_widths = c(1,0.15))
+
+sf2 <- cowplot::plot_grid(pp3,depth_scheme_plot,nrow=2,rel_heights = c(11,7), labels = c('(A)','(B)'),label_x = 0.85)
+sf2
+
+# ggsave(file = here('plots','7_Supplementary_Figure_2.jpg'),
+#        sf2,
+#        width = 10,height = 13,units='in',bg='white')
+```
+
+```{r fig.width=10, fig.height=8, out.width="100%",warning=FALSE, message=FALSE}
+# Supplementary Figure 3 ----------------------------------------------------------------------
+sf3 <-
+fit %>% filter(!species=='Zz_Merluccius productus') %>% 
+  ggplot(aes(x = exp(Log_D_est))) +
+  geom_histogram(bins = 100, fill = "grey", color = "black", alpha = 0.7) +
+  scale_x_log10(labels=scientific,breaks=10^c(-5,-3,-1,1,3,5))+
+  geom_vline(aes(xintercept = exp(0.07)), color = "tomato2", linetype = "dashed", size = 0.75) +
+  # annotate("text", x = 0.1, y = 15, label = expression(e^0.07~'DNA concentration'),
+  annotate("text", x = 0.7, y = 15, label = '1 DNA copies/L',
+           color = "tomato2", vjust = -0.3, hjust = 0.5, size = 3, angle = 90) +
+  annotate("text", x = 0.005, y = 32, label = "Absence", color = "tomato2", vjust = -0.5, size = 3) +
+  annotate("text", x = 30, y = 32, label = "Presence", color = "tomato2", vjust = -0.5, size = 3) +
+  ylim(0,34)+
+  facet_wrap(~species) + # Facet by species
+  # labs(x = expression('Log'[e]~'DNA concentration (copies/L)'),
+  labs(x = 'DNA concentration (copies/L)',
+       y = "Number of samples (frequency)") +
+  theme_bw()
+sf3
+
+# ggsave(file = here('plots','8_Supplementary_Figure_3.jpg'),
+#        sf3,
+#        h=8,w=10,units='in',bg='white')
+```
+
+```{r fig.width=10, fig.height=8, out.width="100%",warning=FALSE, message=FALSE}
+# Supplementary Figure 4 ----------------------------------------------------------------------
+# 1794 unique samples
+samp_map_qpcr <- qPCR_unk %>% dplyr::select(tubeID,lat,lon,depth_cat) %>% 
+  distinct(tubeID,lat,lon,depth_cat) %>% 
+  mutate(group='ALL')
+
+# 555 unique samples
+samp_map_MB <- qPCR_unk %>% dplyr::select(tubeID,lat,lon,depth_cat) %>% 
+  distinct(tubeID,lat,lon,depth_cat) %>% 
+  filter(tubeID%in%mfu_raw$tubeID) %>% 
+  mutate(group='MB')
+
+# 357 unique samples
+samp_map_MB_stan <- qPCR_unk %>% dplyr::select(tubeID,lat,lon,depth_cat) %>% 
+  distinct(tubeID,lat,lon,depth_cat) %>% 
+  filter(tubeID%in%mfu_stan$tubeID) %>% 
+  mutate(group='MB_stan')
+
+samp_map_raw <- samp_map_qpcr %>% mutate(x=paste0(lat,lon,depth_cat)) %>% 
+  anti_join(.,
+            samp_map_MB %>% mutate(x=paste0(lat,lon,depth_cat)), by = "x") %>% 
+  rbind(.,samp_map_MB %>% mutate(x=paste0(lat,lon,depth_cat))) %>% 
+  anti_join(.,
+            samp_map_MB_stan %>% mutate(x=paste0(lat,lon,depth_cat)), by = "x") %>% 
+  select(-x) %>% 
+  rbind(.,samp_map_MB_stan)
+
+samp_map <- samp_map_raw %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = F)
+
+sf4 <-
+  ggplot() +
+  geom_sf(data = coast_line, fill = 'gray80') +
+  geom_sf(data = samp_map %>% filter(depth_cat %in% c(0, 50, 150, 300, 500)),
+          aes(color = group, shape = group, size = group)) +
+  facet_wrap(~depth_cat, nrow = 1) +
+  ylim(dat_bbox$ymin, dat_bbox$ymax) +
+  scale_color_manual(
+    values = c("ALL" = "deepskyblue1", "MB" = "steelblue4", "MB_stan" = "orangered2"),
+    labels = c("qPCR", "Metabarcoding", "Joint samples")
+  ) +
+  scale_shape_manual(
+    values = c("ALL" = 4, "MB" = 4, "MB_stan" = 18)
+  ) +
+  scale_size_manual(
+    values = c("ALL" = 2, "MB" = 2, "MB_stan" = 2)
+  ) +
+  labs(color = "Sampling coverage") +
+  scale_x_continuous(
+    limits = c(dat_bbox$xmin, dat_bbox$xmax), 
+    breaks = c(-125.5, -124)
+  ) +
+  guides(
+    shape = "none", size = "none") +
+  theme_bw() +
+  theme(
+    legend.text = element_text(size = 13),
+    legend.title = element_text(size = 14)
+  )
+
+sf4
+# ggsave(file = here('plots','9_Supplementary_Figure_4.jpg'),
+#        sf4,
+#        h=8,w=10,units='in',bg='white')
+```
+
+```{r}
+# Supplementary Figure 5 ----------------------------------------------------------------------
+all_maps <- readRDS(here('Intermediate_data','all_maps_se.rds')) %>% bind_rows(.id='sp') 
+  
+
+sp_common <- all_maps$sp %>% unique()
+# sp_scie <- fit$species %>% unique()
+# sp_list
+
+plot_list <- list()
+
+for (i in 1:12) {
+p1 <-
+  fit %>% 
+  filter(species==sp_list[i]) %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = T) %>%
+  st_transform(crs = utm_km_crs) %>%
+  mutate(utm.lon.km = st_coordinates(.)[, 1], utm.lat.km = st_coordinates(.)[, 2]) %>% as.data.frame() %>%
+  st_as_sf(coords = c("utm.lon.km", "utm.lat.km"),crs = utm_km_crs,remove = FALSE) %>% 
+  ggplot()+
+  geom_sf(data=coast_line,fill='gray80')+
+  geom_sf(aes(color=exp(Log_D_est)),size=2)+
+    # ggtitle(bquote(italic(.(sp_list[i]))))+ 
+    # ggtitle(sp_list[i])+
+  scale_color_gradientn(colors = c(rep('#00496F', 6),pnw_palette(name = "Bay", n = 14, type = "continuous"),rep('#DD4124', 7)),
+                       name = "Estimated eDNA\nconcentration\n(copies/L)",
+                       trans = log_trans(base = exp(1)),
+                       limits = c(0.001, 10000000),
+                       breaks = c(0.1, 1, 10, 100, 1000, 10000, 100000,1000000,10000000),
+                       labels = c('0.1', "1", "10", "100", "1000", "10000", '100000','1000000','10000000'))+
+  coord_sf(datum=NA)+
+  facet_wrap(~depth_cat,nrow=1)+
+  ylim(dat_bbox$ymin, dat_bbox$ymax) +
+  scale_x_continuous(limits = c(dat_bbox$xmin, dat_bbox$xmax),
+  breaks = c(-125.5, -124)) +
+  # theme(plot.title = element_text(face = "italic",size = 14))+
+  labs(color="Log Copies",x="")  
+
+# p1_legend <- cowplot::get_legend(p1)
+
+p2 <- fit %>% 
+  filter(species==sp_list[i]) %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = T) %>%
+  st_transform(crs = utm_km_crs) %>%
+  mutate(utm.lon.km = st_coordinates(.)[, 1], utm.lat.km = st_coordinates(.)[, 2]) %>% as.data.frame() %>%
+  st_as_sf(coords = c("utm.lon.km", "utm.lat.km"),crs = utm_km_crs,remove = FALSE) %>% 
+  ggplot()+
+  geom_sf(data=coast_line,fill='gray80')+
+  geom_sf(aes(color=sd),size=2)+
+  # scale_color_gradientn(colors = moma.colors("Alkalay1", n = 12, type = "continuous"),
+  scale_color_gradientn(colors = pnw_palette("Moth", n = 12, type = "continuous"),
+                        name = "SD of log estimated\neDNA concentration\n(copies/L)",
+                        # trans = log_trans(base = exp(1)),
+                        limits = c(0, 3.5),
+                        breaks = c(0,1,2,3),
+                        labels = c('0','1','2','3'))+
+  coord_sf(datum=NA)+
+  facet_wrap(~depth_cat,nrow=1)+
+  ylim(dat_bbox$ymin, dat_bbox$ymax) +
+  scale_x_continuous(limits = c(dat_bbox$xmin, dat_bbox$xmax),
+  breaks = c(-125.5, -124)) +
+  labs(color="SD of Log Copies",x="")  
+
+# p2_legend <- cowplot::get_legend(p2)
+
+
+p3 <- ggplot()+
+  geom_sf(data=coast_line,fill='gray80')+
+  geom_sf(data=all_maps %>% filter(sp==sp_common[i]),aes(fill=exp(est)),color=NA)+
+  # geom_sf(data=dat_sf,color='red',size=0.5,shape=4)+
+  # scale_fill_viridis(option="H")+
+  scale_fill_gradientn(colors = c(rep('#00496F', 6),pnw_palette(name = "Bay", n = 14, type = "continuous"),rep('#DD4124', 7)),
+                       name = "Smoothed estimated\neDNA concentration\n(copies/L)",
+                       trans = log_trans(base = exp(1)),
+                       limits = c(0.001, 10000000),
+                       breaks = c(0.1, 1, 10, 100, 1000, 10000, 100000,1000000,10000000),
+                       labels = c('0.1', "1", "10", "100", "1000", "10000", '100000','1000000','10000000'))+
+  coord_sf(datum=NA)+
+  facet_wrap(~depth_cat,nrow=1)+
+  ylim(dat_bbox$ymin, dat_bbox$ymax) +
+  scale_x_continuous(limits = c(dat_bbox$xmin, dat_bbox$xmax),
+                     breaks = c(-125.5, -124)) +
+  labs(fill="Log Copies",x="")
+
+# p3_legend <- cowplot::get_legend(p3)
+
+
+p4 <- ggplot()+
+  geom_sf(data=coast_line,fill='gray80')+
+  geom_sf(data=all_maps %>% filter(sp==sp_common[i]),aes(fill=est_se),color=NA)+
+  # geom_sf(data=dat_sf,color='red',size=0.5,shape=4)+
+  # scale_fill_viridis(option="H")+
+  # scale_fill_gradientn(colors = moma.colors("Alkalay1", n = 12, type = "continuous"),
+  scale_fill_gradientn(colors = c(pnw_palette("Moth", n = 12, type = "continuous"),rep('#F0F0E4',10)),
+                       name = "SE of log prediction of\nsmoothed estimated\neDNA concentration\n(copies/L)",
+                       limits = c(0,12.2))+
+  coord_sf(datum=NA)+
+  facet_wrap(~depth_cat,nrow=1)+
+  ylim(dat_bbox$ymin, dat_bbox$ymax) +
+  scale_x_continuous(limits = c(dat_bbox$xmin, dat_bbox$xmax),
+                     breaks = c(-125.5, -124)) +
+  labs(fill="Standard error \nof Log Copies",x="")
+
+p00 <- ggplot()+
+  theme_minimal()
+p0 <- ggplot()+
+  ggtitle(bquote(italic(.(sp_list[i]))))+
+  theme(plot.title = element_text(face = "italic",size = 14),
+            plot.margin = margin(t = 0, b = -10))+
+  theme_minimal()
+
+plot_list[[i]] <-
+  cowplot::plot_grid(
+  p00,
+  p0,
+  p1+theme(legend.position = 'none'),
+  p2+theme(legend.position = 'none'),
+  p3+theme(legend.position = 'none'),
+  p4+theme(legend.position = 'none'),
+  rel_heights = c(0.3,1,10,10,10,10),
+  ncol = 1,align = 'v')
+}
+
+plot_list[[i]]
+
+p1_legend <- cowplot::get_legend(p1)
+p2_legend <- cowplot::get_legend(p2)
+p3_legend <- cowplot::get_legend(p3)
+p4_legend <- cowplot::get_legend(p4)
+
+legend <- cowplot::plot_grid(p1_legend,
+                             p2_legend,
+                             p3_legend,
+                             p4_legend,
+                             ncol = 1,
+                             align = 'v')
+
+sf_5_1 <- cowplot::plot_grid(plot_list[[1]],
+                   plot_list[[2]],
+                   plot_list[[3]],
+                   legend,
+                   nrow = 1,
+                   align = 'h',
+                   rel_widths = c(4,4,4,2.2))
+sf_5_2 <- cowplot::plot_grid(plot_list[[4]],
+                   plot_list[[5]],
+                   plot_list[[6]],
+                   legend,
+                   nrow = 1,
+                   align = 'h',
+                   rel_widths = c(4,4,4,2.2))
+sf_5_3 <- cowplot::plot_grid(plot_list[[7]],
+                   plot_list[[8]],
+                   plot_list[[9]],
+                   legend,
+                   nrow = 1,
+                   align = 'h',
+                   rel_widths = c(4,4,4,2.2))
+sf_5_4 <- cowplot::plot_grid(plot_list[[10]],
+                   plot_list[[11]],
+                   plot_list[[12]],
+                   legend,
+                   nrow = 1,
+                   align = 'h',
+                   rel_widths = c(4,4,4,2.2))
+
+
+# ggsave(here('plots','10_Supplementary_Figure_5_ppx_A.jpg'),sf_5_1,width = 10,height = 12)
+# ggsave(here('plots','10_Supplementary_Figure_5_ppx_B.jpg'),sf_5_2,width = 10,height = 12)
+# ggsave(here('plots','10_Supplementary_Figure_5_ppx_C.jpg'),sf_5_3,width = 10,height = 12)
+# ggsave(here('plots','10_Supplementary_Figure_5_ppx_D.jpg'),sf_5_4,width = 10,height = 12)
+ 
+
+```
+
+```{r}
+# Supplementary Figure 6 ----------------------------------------------------------------------
+# Diagnostic plots
+stan_post_df <- extract_param(stan_post)
+extract_param <- function (model, par) 
+{
+  fit <- (methods::selectMethod("summary", signature = "stanfit"))(object = model, 
+                                                                   par = par)
+  fit <- fit$summary
+  return(fit %>% unlist() %>% as.data.frame %>% round(., 6))
+}
+# Determine the range of ESS
+ess_range <- stan_post_df$n_eff %>% 
+  range(na.rm = TRUE) %>% log() %>% 
+  floor() %>% as.data.frame() %>% 
+  setNames('ESS_range') %>% 
+  mutate(ESS_range = if_else(row_number(.) == 2, ESS_range + 1, ESS_range)) %>% 
+  mutate(ESS_range=exp(ESS_range)) %>% 
+  pull(ESS_range)
+
+
+ess_breaks <-
+seq(from = sqrt(ess_range[1]), to = sqrt(ess_range[2]), length.out = 4) %>% 
+  as.data.frame() %>% 
+  setNames('ESS_breaks') %>% 
+  mutate(ESS_breaks=ESS_breaks^2) %>% 
+  mutate(ESS_breaks=round_by10(ESS_breaks)) %>% 
+  pull(ESS_breaks)
+
+
+# Diagnostics & Goodness-of-Fit
+p1 <-
+stan_post_df %>% 
+  ggplot()+
+  geom_histogram(aes(x=n_eff),binwidth = 2,fill = "skyblue", color = "black")+
+  # scale_x_continuous(trans = "sqrt", labels = c(500, 2500, 5000, 15000), breaks = c(500, 2500, 5000, 15000)) +
+  scale_x_sqrt(labels=scientific_10,limits=ess_range,breaks=ess_breaks) +
+  theme_bw()+
+  xlab('ESS (Effective Sampling Size)')+
+  geom_vline(xintercept = 200, linetype = "dashed", color = "red")+
+  annotate("text", x = 200, y = 0, label = "Threshold", color = "red", angle = 90, vjust = 1.3,hjust = -1, size=5) +
+  ylab('Number of\nparameters')+
+  theme(
+    axis.title.x = element_text(size=13),
+    axis.text.x = element_text(size=13),
+    axis.text.y = element_text(size=13),
+    axis.title.y = element_text(size=14)
+  )
+
+
+# Determine the range of Rhat
+rhat_range <-
+stan_post_df$Rhat %>% 
+  as.data.frame() %>% 
+  setNames('Rhat') %>% 
+  mutate(nparam = nrow(.),
+         max = max(Rhat, na.rm = TRUE),
+         min = min(Rhat, na.rm = TRUE)) %>% 
+  summarise(nparam=first(nparam),
+            max = first(max),
+            min = first(min)) %>% 
+  mutate(binwidth=((max-min)/nparam)*10) %>% 
+  mutate(max=if_else(max<1.05,1.06,max))
+  
+
+rhat_breaks <-
+seq(from = rhat_range$min, to = rhat_range$max, length.out = 4) %>%
+  tibble(values = .) %>%
+  mutate(values = ifelse(abs(values - 1) == min(abs(values - 1)), 1, values)) %>% 
+  mutate(values = round(values, 2)) %>% 
+  pull(values)
+
+p2 <-
+stan_post_df %>% 
+  ggplot()+
+  geom_histogram(aes(x=Rhat),binwidth = rhat_range$binwidth,fill = "skyblue", color = "black")+
+  theme_bw()+
+  scale_x_continuous(limits=c(rhat_range$min,rhat_range$max),labels = rhat_breaks)+
+  geom_vline(xintercept = 1.05, linetype = "dashed", color = "red")+
+  annotate("text", x = 1.05, y = 600, label = "Threshold", color = "red", angle = 90, vjust = 1.5,hjust=2, size=5) +
+  xlab('Rhat')+
+  theme(
+    axis.title.x = element_text(size=13),
+    axis.text.x = element_text(size=13),
+    axis.text.y = element_text(size=13),
+    axis.title.y = element_blank()
+  )
+
+pp1 <- cowplot::plot_grid(p1,p2,nrow = 1)
+
+# pp1
+
+# Tree depth ----------------------------------------------------------------------------------
+sampler_params <- get_sampler_params(stan_post, inc_warmup = T)
+
+warmup_it <- stan_post@stan_args[[1]]$warmup
+samp_it <- stan_post@stan_args[[1]]$iter
+
+# Extract tree depth for each chain
+tre <- lapply(sampler_params, function(x) x[, "treedepth__"])
+acc <- lapply(sampler_params, function(x) x[, "accept_stat__"])
+sts <- lapply(sampler_params, function(x) x[, "stepsize__"])
+div <- lapply(sampler_params, function(x) x[, "divergent__"])
+log_lik <- get_logposterior(stan_post, inc_warmup = TRUE)
+
+tree_depths_df <- 
+  tibble(Iteration = rep(1:length(tre[[1]]),length(tre)),
+    Chain = rep(1:length(tre),each = length(tre[[1]])),
+         Tree_Depth = unlist(tre))
+acc_df <- 
+  tibble(Iteration = rep(1:length(acc[[1]]),length(acc)),
+         Chain = rep(1:length(acc),each = length(acc[[1]])),
+         Tree_Depth = unlist(acc))
+sts_df <- 
+  tibble(Iteration = rep(1:length(sts[[1]]),length(sts)),
+         Chain = rep(1:length(sts),each = length(sts[[1]])),
+         Tree_Depth = unlist(sts))
+div_df <- 
+  tibble(Iteration = rep(1:length(div[[1]]),length(div)),
+         Chain = rep(1:length(div),each = length(div[[1]])),
+         Tree_Depth = unlist(div))
+
+lik_df <- 
+  tibble(Iteration = rep(1:length(log_lik[[1]]),length(log_lik)),
+         Chain = rep(1:length(log_lik),each = length(log_lik[[1]])),
+         Tree_Depth = unlist(log_lik))
+
+chain_col_map <- setNames(
+  c('#F0944C',
+    '#A3A55F',
+    '#b4e5dd',
+    '#C47688',
+    '#B2B9BC',
+    '#2E92A2'),c(1:6))
+
+  
+p1 <-
+ggplot() +
+  geom_line(data=tree_depths_df %>% filter(Iteration>=warmup_it),aes(x = Iteration, y = Tree_Depth, color = as.factor(Chain)),linewidth = 0.5) +
+  geom_line(data=tree_depths_df %>% filter(Iteration<warmup_it),aes(x = Iteration, y = Tree_Depth, color = as.factor(Chain)),linewidth = 0.5,alpha=0.6) +
+  labs(x = "Iteration",y = "Tree depth",color = "Chain") +
+  # geom_vline(xintercept = 1000, linetype = "dashed",size=1, color = "black")+
+  theme_bw()+
+  scale_color_manual(values = chain_col_map)+
+  geom_rect(aes(xmin = 1, xmax = warmup_it, ymin = -Inf, ymax = Inf), fill = "grey70", alpha = 0.2)+
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size=13),
+    axis.title.y = element_text(size=14),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(1.7, "lines"),
+    legend.position = 'none')
+
+p2 <-
+ggplot() +
+  geom_point(data=div_df %>% filter(Iteration>=warmup_it),aes(x = Iteration, y = Tree_Depth, color = as.factor(Chain))) +
+  geom_point(data=div_df %>% filter(Iteration<warmup_it),aes(x = Iteration, y = Tree_Depth, color = as.factor(Chain)),alpha=0.6) +
+  labs(x = "Iteration",y = "Divergence\ntransition",color = "Chain") +
+  # geom_vline(xintercept = 1000, linetype = "dashed",size=1, color = "black")+
+  scale_y_continuous(limits = c(-0.25,1.25), breaks=c(0,1),labels = c('No','Yes'))+
+  theme_bw()+
+  scale_color_manual(values = chain_col_map)+
+  geom_rect(aes(xmin = 1, xmax = warmup_it, ymin = -Inf, ymax = Inf), fill = "grey70", alpha = 0.2)+
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size=13),
+    axis.title.y = element_text(size=14),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(1.7, "lines"),
+    legend.position = 'none')
+
+
+p3 <-
+ggplot() +
+  geom_line(data=sts_df %>% filter(Iteration>=warmup_it),aes(x = Iteration, y = Tree_Depth, color = as.factor(Chain)),linewidth = 0.5) +
+  geom_line(data=sts_df %>% filter(Iteration<warmup_it),aes(x = Iteration, y = Tree_Depth, color = as.factor(Chain)),linewidth = 0.5,alpha=0.6) +
+  labs(x = "Iteration",y = "Step size",color = "Chain") +
+  theme_bw()+
+  ylim(quantile(sts_df$Tree_Depth,0.0005),quantile(sts_df$Tree_Depth,0.9995))+
+  scale_color_manual(values = chain_col_map)+
+  geom_rect(aes(xmin = 1, xmax = warmup_it, ymin = -Inf, ymax = Inf), fill = "grey70", alpha = 0.2)+
+  theme(
+    axis.title.x = element_text(size=14),
+    axis.text.x = element_text(size=13),
+    axis.text.y = element_text(size=13),
+    axis.title.y = element_text(size=14),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(1.7, "lines"),
+    legend.position = 'none')
+
+p4 <-
+ggplot() +
+  geom_line(data=acc_df %>% filter(Iteration>=warmup_it),aes(x = Iteration, y = Tree_Depth, color = as.factor(Chain)),linewidth = 0.5) +
+  geom_line(data=acc_df %>% filter(Iteration<warmup_it),aes(x = Iteration, y = Tree_Depth, color = as.factor(Chain)),linewidth = 0.5,alpha=0.6) +
+  labs(x = "Iteration",y = "Accepctance rate",color = "Chain") +
+  # geom_vline(xintercept = 1000, linetype = "dashed",size=1, color = "black")+
+  theme_bw()+
+  # ylim(0,0.075)+
+  scale_color_manual(values = chain_col_map)+
+  geom_rect(aes(xmin = 1, xmax = warmup_it, ymin = -Inf, ymax = Inf), fill = "grey70", alpha = 0.2)+
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size=13),
+    axis.title.y = element_text(size=14),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(1.7, "lines"),
+    legend.position = 'none')
+
+
+p5 <-
+ggplot() +
+  geom_line(data=lik_df %>% filter(Iteration>=warmup_it),
+            aes(x = Iteration, y = Tree_Depth, color = as.factor(Chain)),linewidth = 0.5) +
+  geom_line(data=lik_df %>% filter(Iteration<warmup_it),
+            aes(x = Iteration, y = Tree_Depth, color = as.factor(Chain)),linewidth = 0.5,alpha=0.6) +
+  labs(x = "Iteration",y = "Posterior likelihood",color = "Chain") +
+  # geom_vline(xintercept = 1000, linetype = "dashed",size=1, color = "black")+
+  theme_bw()+
+  # ylim(quantile(lik_df$Tree_Depth,0.15),quantile(lik_df$Tree_Depth,0.975))
+  # scale_y_continuous(labels = function(x) scientific_10(x, precision = 3))
+scale_y_continuous(labels=scientific_type_2,limits=c(quantile(lik_df$Tree_Depth,0.05),quantile(lik_df$Tree_Depth,0.975)),
+                     breaks = c(quantile(lik_df$Tree_Depth,0.05),
+                                quantile(lik_df$Tree_Depth,0.15),
+                                quantile(lik_df$Tree_Depth,0.5),
+                                quantile(lik_df$Tree_Depth,0.85),
+                                quantile(lik_df$Tree_Depth,0.975)))+
+  scale_color_manual(values = chain_col_map)+
+  geom_rect(aes(xmin = 1, xmax = warmup_it, ymin = -Inf, ymax = Inf), fill = "grey70", alpha = 0.2)+
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size=11),
+    axis.title.y = element_text(size=14),
+    legend.title = element_text(size = 16),
+    legend.position = 'none')
+
+legend <-
+ggplot() +
+  geom_line(data=lik_df,aes(x = Iteration, y = Tree_Depth, color = as.factor(Chain)),linewidth = 1) +
+  theme_bw()+
+  labs(x = "Iteration",y = "Accepctance rate",color = "Chain") +
+  scale_color_manual(values = chain_col_map)+
+  geom_rect(aes(xmin = 1, xmax = 200, ymin = -Inf, ymax = Inf, fill = "Warmup"),color = "black", alpha = 0.3) +
+  geom_rect(aes(xmin = 200, xmax = 1000, ymin = -Inf, ymax = Inf, fill = "Sampling"), color = "black",alpha = 0.3) +
+  scale_fill_manual(name = "Phase", values = c("Warmup" = "grey70", "Sampling" = "white")) +
+  theme(
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(1.7, "lines"))
+
+leg <- cowplot::get_legend(legend)
+
+pp2 <- cowplot::plot_grid(p5,p4,p1,p2,p3,ncol = 1,align = 'v',rel_heights = c(5,5,5,2.2,6))
+
+pp3 <- cowplot::plot_grid(pp1,pp2,ncol = 1,rel_heights = c(1,3),labels = c('A','B'),label_x = 1)
+sf6 <- cowplot::plot_grid(pp3,leg,ncol = 2,rel_widths = c(7,1.5))
+
+sf6
+
+# ggsave(here('plots','11_Supplementary_Figure_6.jpg'),
+#        sf6,
+#        height = 13,width = 9)
+```
+
+```{r}
+# Supplementary Figure 7 ----------------------------------------------------------------------
+# Prior Sensitivity 
+log_D <- extract_param(stan_post,'log_D') %>% 
+  rownames_to_column('x') %>% 
+  mutate(param=str_split_fixed(x,'\\[', 3)[,1]) %>% 
+  mutate(sp=str_split_fixed(x,'\\[', 3)[,2]) %>% 
+  mutate(sp=str_split_fixed(sp,',', 3)[,2]) %>% 
+  mutate(sp=str_split_fixed(sp,'\\]', 3)[,1]) %>% 
+  mutate(sp=as.numeric(sp)) %>% 
+  select(-x) %>% mutate(param='5.log_D') %>% 
+  left_join(stan_data$sp_list,
+            by=c('sp'='species_idx')) %>% 
+  filter(sp!=13) 
+
+
+  
+beta_0 <- extract_param(stan_post,'beta_std_curve_0') %>% 
+  rownames_to_column('x') %>% 
+  mutate(param=str_split_fixed(x,'\\[', 3)[,1]) %>% 
+  select(-x) %>% mutate(param='1.beta_std_curve_0') %>% 
+  mutate(mean=39+mean,`2.5%`=`2.5%`+39,`97.5%`=`97.5%`+39)
+
+beta_1 <- extract_param(stan_post,'beta_std_curve_1') %>% 
+  rownames_to_column('x') %>% 
+  mutate(param=str_split_fixed(x,'\\[', 3)[,1]) %>% 
+  select(-x) %>% mutate(param='2.beta_std_curve_1')
+log_D_station_depth <- extract_param(stan_post,'log_D_station_depth') %>% 
+  rownames_to_column('x') %>% 
+  mutate(param=str_split_fixed(x,'\\[', 3)[,1]) %>% 
+  select(-x) %>% mutate(param='4.log_D_station_depth')
+bio_rep_param <- extract_param(stan_post,'bio_rep_param') %>% 
+  rownames_to_column('x') %>% 
+  mutate(param=str_split_fixed(x,'\\[', 3)[,1]) %>% 
+  select(-x) %>% mutate(param='2.bio_rep_param')
+
+mean_hake <- extract_param(stan_post,'mean_hake') %>% 
+  rownames_to_column('x') %>% 
+  mutate(param=str_split_fixed(x,'\\[', 3)[,1]) %>% 
+  select(-x) %>% mutate(param='6.mean_hake')
+tau <- extract_param(stan_post,'tau_bio_rep') %>% 
+  rownames_to_column('x') %>% 
+  mutate(param=str_split_fixed(x,'\\[', 3)[,1]) %>% 
+  select(-x) %>% mutate(param='1.tau_bio_rep')
+logit_phi_0 <- extract_param(stan_post,'logit_phi_0') %>% 
+  rownames_to_column('x') %>% 
+  mutate(param=str_split_fixed(x,'\\[', 3)[,1]) %>% 
+  select(-x) %>% mutate(param='3.logit_phi_0')
+gamma_0 <- extract_param(stan_post,'gamma_0') %>% 
+  rownames_to_column('x') %>% 
+  mutate(param=str_split_fixed(x,'\\[', 3)[,1]) %>% 
+  select(-x) %>% mutate(param='1.gamma_0')
+gamma_1 <- extract_param(stan_post,'gamma_1') %>% 
+  rownames_to_column('x') %>% 
+  mutate(param=str_split_fixed(x,'\\[', 3)[,1]) %>% 
+  select(-x) %>% mutate(param='2.gamma_1')
+log_D_sigma <- extract_param(stan_post,'log_D_sigma') %>% 
+  rownames_to_column('x') %>% 
+  mutate(param=str_split_fixed(x,'\\[', 3)[,1]) %>% 
+  select(-x) %>% mutate(param='3.log_D_sigma')
+
+
+
+log_D_prior <- data.frame(mean=rnorm(1e4,0,5)) %>% 
+  mutate(lower=quantile(mean,probs = 0.025)) %>% 
+  mutate(upper=quantile(mean,probs = 0.975)) %>% 
+  summarise(mean=mean(mean),lower=mean(lower),upper=mean(upper)) %>% 
+  mutate(param='5.log_D')
+mean_hake_prior <- data.frame(mean=rnorm(1e4,2,2)) %>% 
+  mutate(lower=quantile(mean,probs = 0.025)) %>% 
+  mutate(upper=quantile(mean,probs = 0.975)) %>% 
+  summarise(mean=mean(mean),lower=mean(lower),upper=mean(upper)) %>% 
+  mutate(param='6.mean_hake')
+tau_prior <- data.frame(mean=rnorm(1e4,0,0.2)) %>% 
+  mutate(lower=0) %>% 
+  mutate(upper=quantile(mean,probs = 0.975)) %>% 
+  summarise(mean=mean(mean),lower=mean(lower),upper=mean(upper)) %>% 
+  mutate(param='1.tau_bio_rep')
+logit_phi_0_prior <- data.frame(mean=rnorm(1e4,3,1)) %>% 
+  mutate(lower=quantile(mean,probs = 0.025)) %>% 
+  mutate(upper=quantile(mean,probs = 0.975)) %>% 
+  summarise(mean=mean(mean),lower=mean(lower),upper=mean(upper)) %>% 
+  mutate(param='3.logit_phi_0')
+gamma_0_prior <- data.frame(mean=rnorm(1e4,0,1)) %>% 
+  mutate(lower=quantile(mean,probs = 0.025)) %>% 
+  mutate(upper=quantile(mean,probs = 0.975)) %>% 
+  summarise(mean=mean(mean),lower=mean(lower),upper=mean(upper)) %>% 
+  mutate(param='1.gamma_0')
+gamma_1_prior <- data.frame(mean=rnorm(1e4,0,1)) %>% 
+  mutate(lower=quantile(mean,probs = 0.025)) %>% 
+  mutate(upper=quantile(mean,probs = 0.975)) %>% 
+  summarise(mean=mean(mean),lower=mean(lower),upper=mean(upper)) %>% 
+  mutate(param='2.gamma_1')
+beta_0_prior <- data.frame(mean=rnorm(1e4,39,3)) %>% 
+  mutate(lower=quantile(mean,probs = 0.025)) %>% 
+  mutate(upper=quantile(mean,probs = 0.975)) %>% 
+  summarise(mean=mean(mean),lower=mean(lower),upper=mean(upper)) %>% 
+  mutate(param='1.beta_std_curve_0')
+beta_1_prior <- data.frame(mean=rnorm(1e4,-1.4,0.05)) %>% 
+  mutate(lower=quantile(mean,probs = 0.025)) %>% 
+  mutate(upper=quantile(mean,probs = 0.975)) %>% 
+  summarise(mean=mean(mean),lower=mean(lower),upper=mean(upper)) %>% 
+  mutate(param='2.beta_std_curve_1')
+log_D_sigma_prior <- data.frame(mean=rnorm(1e4,0,3)) %>% 
+  mutate(lower=0) %>% 
+  mutate(upper=quantile(mean,probs = 0.975)) %>% 
+  summarise(mean=mean(mean),lower=mean(lower),upper=mean(upper)) %>% 
+  mutate(param='3.log_D_sigma')
+log_D_station_depth_prior <- data.frame(mean=rnorm(1e4,0,1.6)) %>% 
+  mutate(lower=quantile(mean,probs = 0.025)) %>% 
+  mutate(upper=quantile(mean,probs = 0.975)) %>% 
+  summarise(mean=mean(mean),lower=mean(lower),upper=mean(upper)) %>% 
+  mutate(param='4.log_D_station_depth')
+bio_rep_param_prior <- data.frame(mean=rnorm(1e4,0,0.95)) %>% 
+  mutate(lower=quantile(mean,probs = 0.025)) %>% 
+  mutate(upper=quantile(mean,probs = 0.975)) %>% 
+  summarise(mean=mean(mean),lower=mean(lower),upper=mean(upper)) %>% 
+  mutate(param='2.bio_rep_param')
+
+first_col <- c("6.mean_hake",
+               "3.logit_phi_0",
+               "1.gamma_0",
+               "2.gamma_1")
+
+second_col <- c("1.tau_bio_rep",  
+                '4.log_D_station_depth', 
+                "3.log_D_sigma", 
+                '2.bio_rep_param') 
+
+third_col <- c('1.beta_std_curve_0',
+               '2.beta_std_curve_1')
+# log_D
+
+post_jitter <- bind_rows(beta_0,beta_1,log_D_station_depth,bio_rep_param)
+post_single <- bind_rows(mean_hake,tau,logit_phi_0,gamma_0,gamma_1,log_D_sigma)
+priors <- bind_rows(log_D_prior,mean_hake_prior,tau_prior,logit_phi_0_prior,
+                    gamma_0_prior,gamma_1_prior,beta_0_prior,beta_1_prior,
+                    log_D_sigma_prior,log_D_station_depth_prior,
+                    bio_rep_param_prior)
+
+
+jitter <- position_jitter(width = 0, height = 0.3, seed = 123)
+
+pp1 <-
+ggplot() +
+  geom_point(data=post_single %>% filter(param%in%first_col),aes(x=mean,y=param))+
+  geom_errorbar(data=post_single %>% filter(param%in%first_col),aes(y = param,xmin = `2.5%`, xmax = `97.5%`), width = 0.05,alpha=1) +
+  
+  geom_point(data=priors%>% filter(param%in%first_col),aes(x=mean,y=param),color='tomato2',size=3,
+             position = position_nudge(y = -0.1))+
+  geom_errorbar(data=priors%>% filter(param%in%first_col),aes(y = param,xmin = lower, xmax = upper),color='red', width = 0.05,
+                position = position_nudge(y = -0.1)) +
+  
+  # facet_wrap(~param,scales = "free_y",ncol = 1)+
+  theme_bw()+
+  theme(strip.text = element_blank(),
+        axis.text.x = element_text(size=13),
+        axis.text.y = element_text(size=17),
+        axis.title.x =element_blank(),
+        axis.title.y = element_blank())+
+  scale_y_discrete(labels = c("6.mean_hake" = expression(psi),
+                              "1.gamma_0" = expression(gamma[0]),
+                              "2.gamma_1" = expression(gamma[1]),
+                              "3.logit_phi_0" = expression(phi)))
+
+
+pp2 <-
+bind_rows(post_jitter,post_single) %>% 
+  filter(param%in%second_col) %>% 
+  filter(param%in%post_jitter$param) %>% 
+# post_jitter %>%
+ggplot(aes(x = mean, y = param)) +
+  
+  geom_point(data=post_single %>% filter(param%in%second_col),aes(x=mean,y=param))+
+  geom_errorbar(data=post_single %>% filter(param%in%second_col),aes(y = param,xmin = `2.5%`, xmax = `97.5%`), width = 0.05,alpha=1) +
+  
+  geom_jitter(aes(x = mean, y = param),position = jitter,alpha=0.4) +
+  geom_errorbar(aes(y = param,xmin = `2.5%`, xmax = `97.5%`), position = jitter, width = 0.01,alpha=0.1) +
+  
+  geom_point(data=priors%>% filter(param%in%second_col),aes(x=mean,y=param),color='tomato2',size=3,
+             position = position_nudge(y = -0.1))+
+  geom_errorbar(data=priors%>% filter(param%in%second_col),aes(y = param,xmin = lower, xmax = upper),color='red', width = 0.05,
+                position = position_nudge(y = -0.1)) +
+  
+  # facet_wrap(~param,scales = "free_y",ncol = 1)+
+  theme_bw()+
+    theme(strip.text = element_blank(),
+          axis.text.x = element_text(size=13),
+          axis.text.y = element_text(size=17),
+          axis.title.x =element_blank(),
+          axis.title.y = element_blank())+
+  scale_y_discrete(labels = c(
+                              "1.tau_bio_rep" = expression(tau),
+                              "3.log_D_sigma" = expression(sigma[D]),
+                              "4.log_D_station_depth" = expression(epsilon[j]),
+                              "2.bio_rep_param" = expression(delta)))
+
+pp3 <-
+bind_rows(post_jitter,post_single) %>% 
+  filter(param%in%third_col) %>% 
+  filter(param%in%post_jitter$param) %>% 
+# post_jitter %>%
+ggplot(aes(x = mean, y = param)) +
+  
+  geom_jitter(aes(x = mean, y = param),position = jitter,alpha=0.4) +
+  geom_errorbar(aes(y = param,xmin = `2.5%`, xmax = `97.5%`), position = jitter, width = 0.01,alpha=0.5) +
+  
+  geom_point(data=priors%>% filter(param%in%third_col),aes(x=mean,y=param),color='tomato2',size=3,
+             position = position_nudge(y = -0.1))+
+  geom_errorbar(data=priors%>% filter(param%in%third_col),aes(y = param,xmin = lower, xmax = upper),color='red', width = 0.05,
+                position = position_nudge(y = -0.1)) +
+  
+  facet_wrap(~param,scales = "free",ncol = 2)+
+  scale_x_continuous(breaks = c(-1.6,-1.5,-1.4,-1.3,35,40,45))+
+  theme_bw()+
+    theme(strip.text = element_blank(),
+          axis.text.x = element_text(size=13),
+          axis.text.y = element_text(size=17),
+          axis.title.x =element_blank(),
+          axis.title.y = element_blank())+
+  scale_y_discrete(labels = c("1.beta_std_curve_0" = expression(beta[0]),
+                              "2.beta_std_curve_1" = expression(beta[1])))
+
+xlegend <-
+data_frame(mean=c(1,1),param=c(1,1),lik=c('Prior','Posterior')) %>% 
+  ggplot() +
+  geom_point(aes(x = mean, y = param,colour = lik),size=3) +
+  geom_line(aes(x = mean, y = param,colour = lik),size=1.5)+
+  theme_bw()+
+  labs(colour = "Likelihood")+
+  scale_color_manual(values=c('Prior'='tomato2','Posterior'='black'))+
+  theme(
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(1.7, "lines"))
+
+pp4 <-
+log_D %>%
+ggplot(aes(x = mean, y = param)) +
+  
+  geom_jitter(aes(x = mean, y = species),position = jitter,alpha=0.4) +
+  geom_errorbar(aes(y = species,xmin = `2.5%`, xmax = `97.5%`), position = jitter, width = 0.01,alpha=0.1) +
+  
+  geom_point(data=priors%>% filter(param=='5.log_D'),aes(x=mean,y='Clupea pallasii'),color='tomato2',size=3,
+             position = position_nudge(y = -0.41))+
+  geom_errorbar(data=priors%>% filter(param=='5.log_D'),aes(y = 'Clupea pallasii',xmin = lower, xmax = upper),color='red', width = 0.15,
+                position = position_nudge(y = -0.41)) +
+  
+  facet_wrap(~param,scales = "free",ncol = 2)+
+  theme_bw()+
+    theme(strip.text = element_blank(),
+          axis.text.x = element_text(size=13),
+          axis.text.y = element_text(size=11,face = "italic"),
+          axis.title.x =element_blank(),
+          axis.title.y = element_blank())
+
+legend <-
+data_frame(mean=c(1,1),param=c(1,1),lik=c('Prior','Posterior')) %>% 
+  ggplot() +
+  geom_point(aes(x = mean, y = param,colour = lik),size=3) +
+  geom_line(aes(x = mean, y = param,colour = lik),size=1.5)+
+  theme_bw()+
+  labs(colour = "Likelihood")+
+  scale_color_manual(values=c('Prior'='tomato2','Posterior'='black'))+
+  theme(
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.key.size = unit(1.7, "lines"))
+
+leg <- cowplot::get_legend(legend)
+
+p1 <- cowplot::plot_grid(pp1,pp2)
+p2 <- cowplot::plot_grid(pp3,p1,ncol = 1,rel_heights = c(1,4))
+p3 <- cowplot::plot_grid(pp4,p2)
+
+sf7 <- cowplot::plot_grid(p3,leg,rel_widths = c(7,1))
+sf7
+
+# ggsave(here('plots','12_Supplementary_Figure_7.jpg'),
+#        sf7,
+#        height = 12,width = 15)
+
+```
+
+```{r fig.width=8, fig.height=12, out.width="100%",warning=FALSE, message=FALSE}
+# Supplementary Figure 8 ----------------------------------------------------------------------
+## Continuous model 
+ 
+color_mapping <-
+  stan_data$sp_list %>% select(-species_idx) %>% 
+  mutate(species=if_else(species=='Zz_Merluccius productus','Merluccius productus',species)) %>% 
+  mutate(col = case_when(
+    species == 'Engraulis mordax' ~ '#F0944C',
+    species == 'Scomber japonicus' ~ '#B2B9BC',
+    species == 'Sardinops sagax' ~ '#AB4E68',
+    species == 'Trachurus symmetricus' ~ '#CDA59B',
+    species == 'Thaleichthys pacificus' ~ '#A3A55F',
+    species == 'Clupea pallasii' ~ '#41959A',
+    species == 'Sebastes entomelas' ~ '#97D8CA',
+    species == 'Tarletonbeania crenularis' ~ '#C47688',
+    species == 'Stenobrachius leucopsarus' ~ '#679C74',
+    species == 'Tactostoma macropus' ~ '#b4e5dd',
+    species == 'Leuroglossus stilbius' ~ '#EEB357',
+    species == 'Merluccius productus' ~ '#2E92A2',
+    species == 'Microstomus pacificus' ~ '#D85A44')) %>% 
+  deframe()
+
+beta_0_param <- extract_param(stan_post,'beta_std_curve_0') %>% 
+  mutate(plate_idx=1:nrow(.))
+beta_1_param <- extract_param(stan_post,'beta_std_curve_1') %>% 
+  mutate(plate_idx=1:nrow(.))
+eq_param <- extract_param(stan_post,'unk_conc_qpcr')
+
+post_pred_qpcr_cm <- stan_data$qpcr_unk %>% 
+  left_join(.,beta_0_param %>% select(mean,plate_idx) %>% 
+              rename(beta_0='mean'),
+            by='plate_idx') %>% 
+  left_join(.,beta_1_param %>% select(mean,plate_idx) %>% 
+              rename(beta_1='mean'),
+            by='plate_idx') %>%
+  mutate(beta_0_offset=stan_data$beta_std_curve_0_offset) %>% 
+  cbind(.,eq_param %>% select(mean)) %>% 
+  rename(eq='mean')
+
+sf8_a <- post_pred_qpcr_cm %>% 
+  filter(Ct!=99) %>% 
+  mutate(Ct_pred=(beta_0_offset + beta_0) + (beta_1*eq)) %>% 
+  ggplot()+
+  geom_point(aes(x=Ct,y=Ct_pred),color=color_mapping[13],alpha=0.2)+
+  ylab('Predicted Ct')+
+  xlab('Observed Ct')+
+  theme_bw()+
+  theme(axis.title.x = element_text(size = 12),
+        axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12))
+
+## Detection probability model -----------------------------------------------------------------
+
+phi_0_param <- extract_param(stan_post,'phi_0')
+eq_param <- extract_param(stan_post,'unk_conc_qpcr')
+
+post_pred_qpcr_pd <- stan_data$qpcr_unk %>% 
+  mutate(phi_0=phi_0_param$mean) %>% 
+  mutate(phi_0_lo=phi_0_param$`2.5%`) %>% 
+  mutate(phi_0_up=phi_0_param$`97.5%`) %>% 
+  cbind(.,eq_param %>% select(mean,`2.5%`,`97.5%`) %>% rename(eq='mean',eq_lo=`2.5%`,eq_up=`97.5%`)) %>% 
+  group_by(tubeID) %>%
+  mutate(obs_theta = mean(z)) %>% 
+  ungroup() %>% 
+  mutate(p_tmp=- 2 * exp(eq) * phi_0) %>% 
+  mutate(theta_pred=inverselogit(log(1-exp(p_tmp))-p_tmp)) %>% 
+  mutate(p_tmp_lo=- 2 * exp(eq) * phi_0_lo) %>% 
+  mutate(theta_pred_lo=inverselogit(log(1-exp(p_tmp_lo))-p_tmp_lo)) %>% 
+  mutate(p_tmp_up=- 2 * exp(eq) * phi_0_up) %>% 
+  mutate(theta_pred_up=inverselogit(log(1-exp(p_tmp_up))-p_tmp_up))
+
+post_pred_qpcr_pd_smooth <- 
+  post_pred_qpcr_pd %>% 
+  group_by(obs_theta) %>% 
+  summarise(theta_pred_mean=median(theta_pred),
+            theta_pred_mean_lo=median(theta_pred_lo),
+            theta_pred_mean_up=median(theta_pred_up))
+
+
+# The new model
+sf8_b <-
+  post_pred_qpcr_pd %>% 
+  ggplot()+
+  theme_bw()+
+  geom_point(aes(x=obs_theta,y=theta_pred),color=color_mapping[13],alpha=0.2,size=2)+
+  geom_smooth(data=post_pred_qpcr_pd_smooth,
+              aes(x=obs_theta,y=theta_pred_mean),color=color_mapping[13],se=F,lty=1, size=1.5,span = 0.75)+
+  geom_smooth(data=post_pred_qpcr_pd_smooth,
+              aes(x=obs_theta,y=theta_pred_mean_lo),color=color_mapping[13],se=F,lty=2,size=0.75)+
+  geom_smooth(data=post_pred_qpcr_pd_smooth,
+              aes(x=obs_theta,y=theta_pred_mean_up),color=color_mapping[13],se=F,lty=2,size=0.75)+
+  ylab('Predicted probability of detection')+
+  xlab('Observed probability of detection')+
+  theme(axis.title.x = element_text(size = 12),
+        axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12))
+# sf8_b
+
+## Metabarcoding model -------------------------------------------------------------------------
+
+# Extract the estimated log concentration
+post_conc <- extract_matrix(stan_post,'log_D')
+
+# Estimate gamma
+pred_logit_val_samp <- t(t(post_conc - post_conc$`13`) +
+                           (unique(stan_data$model_vector_a_samp)*stan_data$alpha_fix))
+
+# Estimate species proportions/probabilities
+pred_prop_samp <- pred_logit_val_samp %>% as.data.frame() %>% 
+  t() %>% softmax_m() %>% t() %>% as.data.frame()
+
+# Generate the predicted number of reads (multinomial random generator function)
+pred_reads <- as.data.frame(matrix(NA,nrow = nrow(pred_prop_samp),
+                                   ncol = ncol(pred_prop_samp)))
+for (i in 1:nrow(pred_prop_samp)) {
+  pred_reads[i,] <-
+    rmultinom(1, 
+              rowSums(stan_data$sample_data)[i], 
+              pred_prop_samp[i,]) %>% t() %>% 
+    as.data.frame()
+}
+
+# Convert data into long format (lf)
+pred_reads_lf <- pred_reads %>% `colnames<-`(colnames(stan_data$sample_data)) %>% 
+  pivot_longer(
+    cols = everything(),         
+    names_to = "species_idx_raw",
+    values_to = "pred_reads") %>% 
+  left_join(.,stan_data$sp_list %>% mutate(species_idx_raw=paste0('sp_',species_idx)),
+            by='species_idx_raw') %>% 
+  select(-species_idx_raw,-species_idx) %>% 
+  mutate(species = if_else(species == 'Zz_Merluccius productus', 'Merluccius productus',species))
+
+obs_reads_lf <- 
+  stan_data$sample_data %>% pivot_longer(
+    cols = everything(),
+    names_to = 'species_idx_raw',
+    values_to = 'obs_reads') %>% 
+  left_join(.,stan_data$sp_list %>% mutate(species_idx_raw=paste0('sp_',species_idx)),
+            by='species_idx_raw') %>% 
+  select(-species_idx_raw,-species_idx) %>% 
+  mutate(species = if_else(species == 'Zz_Merluccius productus', 'Merluccius productus',species))
+
+# Combine lf data for plotting
+comb_reads <- cbind(pred_reads_lf,obs_reads_lf %>% rename(species_2='species'))
+
+legend <- comb_reads %>% 
+  ggplot()+
+  geom_point(aes(x=obs_reads,y=pred_reads,color=species))+
+  labs(color = "Species") +
+  theme_bw()+
+  scale_color_manual(values = color_mapping)+
+  theme(legend.title = element_text(size = 13),
+        legend.text = element_text(size = 11,face = "italic"))
+
+leg1 <- cowplot::get_legend(legend+theme(legend.justification = c(0.5, 0.8)))
+
+
+sf8_c <-
+  comb_reads %>% 
+  ggplot()+
+  geom_point(aes(x=obs_reads,y=pred_reads,color=species))+
+  scale_x_log10(labels=scientific,breaks=10^c(0:6))+
+  scale_y_log10(labels=scientific,breaks=10^c(0:6))+
+  labs(color = "Species") +
+  scale_color_manual(values = color_mapping)+
+  ylab('Predicted sequence reads')+
+  xlab('Observed sequence reads')+
+  theme_bw()+
+  theme(legend.position = 'none',
+        axis.title.x = element_text(size = 12),
+        axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12))
+
+## Mock model -------------------------------------------------------------------------
+mockIDs <- stan_data$mock_data_labeled$mockID
+
+# mock communities - reads
+mock_reads_dat <- stan_data %>%
+  pluck('mock_data') %>% 
+  mutate(mockID=mockIDs) %>% 
+  pivot_longer(-mockID,names_to = 'taxa',values_to='reads')
+
+# mock communities - proportions
+mock_alr_dat <- stan_data %>%
+  pluck('alr_mock_true_prop') %>% 
+  mutate(mockID=mockIDs) %>% 
+  pivot_longer(-mockID,names_to = 'taxa',values_to='alr') %>% 
+  group_by(mockID) %>% 
+  mutate(prop=softmax(alr)) %>% 
+  ungroup()
+
+# mock communities - fitted (estimated) values
+mock_fit <- extract_param(stan_post_mock,'logit_val_mock') %>% 
+  mutate(mockID=mock_alr_dat$mockID) %>% 
+  mutate(se_mean=ifelse(is.nan(se_mean),0,se_mean)) %>% 
+  mutate(alr_upper=mean+se_mean,alr_lower=mean-se_mean) %>% 
+  group_by(mockID) %>% 
+  mutate(prop=softmax(mean),prop_lower=softmax(`2.5%`),prop_upper=softmax(`97.5%`)) %>% 
+  ungroup()
+
+# join obs/preds
+mock_alr_join <- mock_alr_dat %>%
+  mutate(alr_fit=mock_fit$mean,
+         alr_upper=mock_fit$alr_upper,
+         alr_lower=mock_fit$alr_lower,
+         prop_fit=mock_fit$prop,
+         prop_upper=mock_fit$prop_upper,
+         prop_lower=mock_fit$prop_lower) %>% 
+  mutate(taxa=gsub('alr_','',taxa)) %>% 
+  mutate(species_idx=as.integer(taxa)) %>% 
+  left_join(.,stan_data$sp_list %>% 
+              mutate(species=if_else(species=='Zz_Merluccius productus','Merluccius productus',species)),
+            by='species_idx')
+
+mock_reads_join <- mock_reads_dat %>% 
+  mutate(prop_fit=mock_fit$prop,
+         prop_upper=mock_fit$prop_upper,
+         prop_lower=mock_fit$prop_lower) %>% 
+  # back out estimated reads from proportions
+  group_by(mockID) %>% 
+  mutate(sumreads=sum(reads)) %>% 
+  ungroup() %>% 
+  mutate(reads_fit=prop_fit*sumreads,
+         reads_upper=prop_upper*sumreads,
+         reads_lower=prop_lower*sumreads) %>% 
+  mutate(taxa=gsub('sp_','',taxa)) %>% 
+  mutate(species_idx=as.integer(taxa)) %>% 
+  left_join(.,stan_data$sp_list %>% 
+              mutate(species=if_else(species=='Zz_Merluccius productus','Merluccius productus',species)),
+            by='species_idx')
+
+sf8_d <- mock_alr_join %>%
+  ggplot(aes(y=prop_fit,x=prop,col=species,ymin=prop_lower,ymax=prop_upper))+
+  geom_pointrange()+
+  geom_abline(slope=1,intercept=0,linetype=2)+
+  ylab('Predicted sequence proportion')+
+  xlab('Observed sequence proportion')+
+  scale_color_manual(values = color_mapping)+
+  theme_bw()+
+  theme(legend.position = 'none',
+        axis.title.x = element_text(size = 12),
+        axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12))
+
+sf8_e <- mock_reads_join %>% 
+  mutate(reads_fit=if_else(reads_fit<0.1,0,reads_fit)) %>%
+  mutate(reads_upper=if_else(reads_upper<0.1,0,reads_upper)) %>%
+  mutate(reads_lower=if_else(reads_lower<0.1,0,reads_lower)) %>%
+  ggplot(aes(y=reads_fit,x=reads,col=species,ymin=reads_lower,ymax=reads_upper))+
+  geom_pointrange()+
+  geom_abline(slope=1,intercept=0,linetype=2)+
+  ylab('Predicted sequence reads')+
+  xlab('Observed sequence reads')+
+  scale_color_manual(values = color_mapping)+
+  scale_x_log10(labels=scientific,breaks=10^c(0:6))+
+  scale_y_log10(labels=scientific,breaks=10^c(0:6))+
+  theme_bw()+
+  theme(legend.position = 'none',
+        axis.title.x = element_text(size = 12),
+        axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12))
+
+sf8 <-
+  cowplot::plot_grid(sf8_a,sf8_b,sf8_d,sf8_e,sf8_c,leg1,labels = c('A','B','C','D','E'),ncol = 2,align = 'v')
+
+sf8
+# ggsave(file = here('plots','13_Supplementary_Figure_8.jpg'),
+#        sf8,
+#        h=13,w=11,units='in',bg='white')
+```
+
+```{r}
+# Supplementary Figure 9 ----------------------------------------------------------------------
+Log_d_est_all <- fit %>% mutate(species_n=paste0('sp_',species_idx)) %>%
+  left_join(.,
+            stan_data[["sample_data_labeled"]] %>% 
+              pivot_longer(cols = sp_1:sp_13,
+                           values_to = 'reads',
+                           names_to = 'species_n') %>% 
+              select(-station_depth_idx,-tubeID,-tech,
+                     -station_idx),
+            by=c('tube_idx','species_n')) %>% 
+  mutate(presence=if_else(reads>0,1,0))
+
+# Fit logistic regression
+mod <- glm(presence ~ Log_D_est, data = Log_d_est_all, family = binomial)
+
+# 50% detection threshold
+thresh_50 <- -coef(mod)["(Intercept)"] / coef(mod)["Log_D_est"]
+thresh_50
+
+p1_raw <- Log_d_est_all %>% 
+  mutate(presence = factor(presence, levels = c(0, 1), 
+                           labels = c("Absent", "Present"))) %>%
+  ggplot()+
+  geom_point(aes(x=Log_D_est,y=sd,color = presence),size=1,alpha=0.6)+
+  labs(
+    y = "SD of Credible Intervals of\nspecies-specific estimated\neDNA concentration\n(log copies / L)",
+    x = "Species-specific estimated eDNA concentration\n(log copies / L)") +
+  scale_color_manual(
+    values = c("Absent" = "#d62728", "Present" = "#1f77b4"),
+    name = "Metabarcoding\ndetection\n(Reads > 0)") +
+  theme_bw()+
+  theme(
+    legend.text = element_text(size = 13),
+    axis.text.y = element_text(size = 13),
+    axis.title.y = element_text(size = 14), 
+    axis.title.x = element_text(size = 14),
+    axis.text.x = element_text(size = 13),
+    legend.title = element_text(size = 14))+
+  guides(color = guide_legend(override.aes = list(size = 2, alpha = 1)))
+
+p1 <- p1_raw+theme(legend.position = 'none')
+legend <- cowplot::get_legend(p1_raw)
+
+
+
+p2 <- Log_d_est_all %>% filter(species_idx != 13) %>% 
+  select(Log_D_est, sd, tube_idx, species_idx, presence) %>% 
+  left_join(.,
+            Log_d_est_all %>% filter(species_idx == 13) %>% 
+              select(Log_D_est, sd, tube_idx),
+            by = 'tube_idx') %>%
+  mutate(presence = factor(presence, levels = c(0, 1), 
+                           labels = c("Absent", "Present"))) %>%
+  ggplot() +
+  geom_point(aes(x = sd.y, y = sd.x, color = presence),size=1, alpha = 0.4) +
+  geom_abline(intercept = 0,slope=1,lty=2,size=0.5,alpha=0.4)+
+  scale_color_manual(
+    values = c("Absent" = "#d62728", "Present" = "#1f77b4"),
+    name = "Detection"
+  ) +
+  labs(
+    x = "SD of Credible Intervals of hake qPCR estimated \neDNA concentration (log copies / L)",
+    # y = "SD of Credible Intervals of\nspecies-specific estimated\neDNA concentration\n(log copies / L)"
+  ) +
+  theme_bw(base_size = 13) +
+  theme(legend.position = "none",
+        axis.title.y = element_blank()) +
+  guides(color = guide_legend(override.aes = list(size = 2, alpha = 1)))
+
+p3 <-
+Log_d_est_all %>% 
+  mutate(presence_f = factor(presence, levels = c(0, 1), 
+                           labels = c("A", "P"))) %>%
+  ggplot()+
+  geom_jitter(aes(x=exp(Log_D_est), y=presence,color=presence_f),size=1, height = 0.05, width = 0, alpha=0.6)+
+  geom_vline(xintercept = exp(thresh_50),
+             linetype = "dashed",
+             color = "red") +
+  scale_y_continuous(breaks = c(0, 1), labels = c("A", "P"))+
+  scale_x_log10(labels=scientific)+
+  scale_color_manual(
+    values = c("A" = "#d62728", "P" = "#1f77b4")) +
+  labs(x = "Species-specific estimated eDNA concentration\n(copies / L)",
+       y = "Presence / Absence (P/A)\nfrom metabarcoding reads\n(Reads > 0)")+
+  annotate("text", x = 0.9, y = 0.5, label = '1 DNA copies/L',
+           color = "tomato2", vjust = -0.3, hjust = 0.5, size = 5, angle = 90) +
+  theme_bw()+
+  theme(
+    legend.position = 'none',
+    legend.text = element_text(size = 13),
+    axis.text.y = element_text(size = 13),
+    axis.title.y = element_text(size = 14), 
+    axis.title.x = element_text(size = 14),
+    axis.text.x = element_text(size = 13),
+    legend.title = element_text(size = 14))
+  
+
+
+
+Log_d_est_all %>% 
+  # filter(presence==1) %>% 
+  # mutate(threshold=if_else(Log_D_est>0.07469153,1,0)) %>% 
+  mutate(threshold=if_else(Log_D_est>0.07,1,0)) %>%
+  count(presence,threshold)
+
+
+p4 <-
+Log_d_est_all %>% 
+  mutate(presence = factor(presence, levels = c(0, 1), 
+                           labels = c("Absent", "Present"))) %>%
+  ggplot()+
+  geom_point(aes(x=reads,y=exp(Log_D_est),color = presence),size=1,alpha=0.6)+
+  scale_x_log10(labels=scientific)+
+  scale_y_log10(labels=scientific)+
+  geom_hline(yintercept = exp(thresh_50),
+             linetype = "dashed",
+             color = "red") +
+  labs(
+    x = "Species-specific metabarcoding reads",
+    y = "Species-specific estimated\neDNA concentration\n(copies / L)") +
+  scale_color_manual(
+    values = c("Absent" = "#d62728", "Present" = "#1f77b4"),
+    name = "Metabarcoding\ndetection (R>0)") +
+  annotate("text", x = 10^3, y = 0.1, label = "1 DNA copies/L", color = "tomato2", vjust = -0.5, size = 5) +
+  theme_bw()+
+  theme(
+    legend.position = 'none',
+    legend.text = element_text(size = 13),
+    axis.text.y = element_text(size = 13),
+    axis.title.y = element_text(size = 14), 
+    axis.title.x = element_text(size = 14),
+    axis.text.x = element_text(size = 13),
+    legend.title = element_text(size = 14))+
+  guides(color = guide_legend(override.aes = list(size = 2, alpha = 1)))
+
+
+
+sf9 <- cowplot::plot_grid(p1,p2,p3,p4,nrow = 2,align = 'vh',labels = c('A','B','C','D')) %>% 
+  cowplot::plot_grid(.,legend,rel_widths = c(9,1))
+
+# ggsave(here('Plots','14_Supplementary_Figure_9.jpg'),
+#        sf9,
+#        width = 14,height = 8)
+
+```
+
+```{r}
+# Supplementary Figure 10 ----------------------------------------------------------------------
+sf10_data <-
+  stan_data[["qpcr_unk"]] %>% cbind(.,extract_param(stan_post,'unk_conc_qpcr')) %>% 
+  mutate(depth_cat=if_else(depth_cat==200,150,depth_cat)) %>% 
+  mutate(depth_cat=if_else(depth_cat==25,50,depth_cat)) %>% 
+  filter(!depth_cat==100) %>% #remove 100m depth because there is no metabarcoding on that depth
+  mutate(H_pres=if_else(Ct>50,0,1)) %>%
+  group_by(lat,lon,depth_cat,station_depth_idx,tubeID) %>% 
+  summarise(qPCR_tot=1,
+            qPCR_pres=max(H_pres)) %>% 
+  left_join(.,mfu_raw %>% 
+              filter(Species=='Merluccius productus') %>% 
+              mutate(h_mb_pres=if_else(nReads>0,1,0)) %>% 
+              mutate(tubeID=as.character(tubeID)) %>% 
+              group_by(lat,lon,depth_cat,tubeID) %>% 
+              summarise(h_mb_pres=max(h_mb_pres),
+                        mb_tot=1),
+            by=c('lat','lon','depth_cat','tubeID')) %>% 
+  mutate(h_mb_pres=if_else(is.na(h_mb_pres),0,h_mb_pres),
+         mb_tot=if_else(is.na(mb_tot),0,mb_tot)) %>%
+  ungroup() %>% 
+  group_by(depth_cat) %>% 
+  summarise(qPCR_tot=sum(qPCR_tot),
+            qPCR_pres=sum(qPCR_pres),
+            MB=sum(mb_tot),
+            H_MB=sum(h_mb_pres)) %>% 
+  pivot_longer(cols = qPCR_tot:H_MB,
+               values_to = 'samples',
+               names_to = 'cat_samp') 
+
+sf10 <- sf10_data %>%   
+  mutate(cat_samp=factor(cat_samp,levels = c('qPCR_tot','qPCR_pres','MB','H_MB'))) %>% 
+  ggplot(aes(x = factor(depth_cat),
+             y = samples,
+             fill = cat_samp)) +
+  geom_col(position = "dodge")+
+  scale_fill_manual(
+    values = c(qPCR_tot = "tomato2",
+               qPCR_pres = 'orange',
+               MB = "deepskyblue4",
+               H_MB = "deepskyblue2"),
+    labels = c(qPCR_tot = "Total qPCR sample",
+               qPCR_pres = 'Hake qPCR positive',
+               MB = "Total MB sample",
+               H_MB = "Hake MB positive"),
+    name='Sample type')+
+  labs(x='Depth (m)', y='Number of samples')+
+  theme_bw(base_size = 14)
+
+sf10
+
+# ggsave(here('Plots','15_Supplementary_Figure_10.jpg'),
+#        sf10,
+#        width = 12,height = 8)
+```
+
+```{r}
+# Supplementary Figure 11 ----------------------------------------------------------------------
+dens_samp_data <- fit %>% filter(species == 'Clupea pallasii') %>% 
+  select(lat,lon,depth_cat)
+
+dat_bbox_wgs84 <- c(xmin = min(dens_samp_data$lon),
+                    xmax = max(dens_samp_data$lon),
+                    ymin = min(dens_samp_data$lat),
+                    ymax = max(dens_samp_data$lat))
+
+depth_polygons <- preds$herring %>%
+  filter(species == "Clupea pallasii") %>%
+  group_by(depth_cat) %>%
+  summarize(.groups = "drop") %>%
+  st_transform(4326)
+
+sf11 <- dens_samp_data %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326, remove = FALSE) %>% 
+  ggplot() +
+  stat_density_2d(
+    aes(x = lon, y = lat, fill = after_stat(density)),
+    geom    = "raster",
+    contour = FALSE,
+    adjust  = 0.31) +
+  scale_fill_gradientn(
+    colours = c(
+      scales::alpha("white", 0),   # force 0 = transparent
+      pnw_palette("Bay",10,type="continuous")),
+    name = "Sample\ndensity")+
+  facet_wrap(~ depth_cat, ncol = 5) +
+  geom_sf(data = depth_polygons,fill = NA,color = "black",linewidth = 0.5,lty=2) +
+  geom_sf(data = coast_line, fill = "grey80", color = "grey50", linewidth = 0.3,inherit.aes = FALSE) +
+  coord_sf(
+    xlim   = c(dat_bbox_wgs84["xmin"], dat_bbox_wgs84["xmax"]),
+    ylim   = c(dat_bbox_wgs84["ymin"], dat_bbox_wgs84["ymax"]),
+    expand = FALSE) +
+  scale_x_continuous(breaks = c(-125.5, -124)) +
+  theme_bw(base_size = 11) +
+  labs(x = "Longitude", y = "Latitude")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+sf11
+# ggsave(here('plots','16_Supplementary_Figure_11.jpg'),
+#        sf11,
+#        width = 9,height = 6)
+```

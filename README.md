@@ -2,7 +2,11 @@
 
 A reproducible pipeline that combines **qPCR** (absolute abundance for a reference species) with **metabarcoding** (compositional, multi-species) in a **joint statistical model**, then fits **spatial smooths** to map estimated DNA concentrations and produces all manuscript figures.
 
-This GitHub repository holds the **code**. The **data** (raw + processed) and the **raw sequencing reads** are hosted externally and are downloaded automatically by the first script you run (see Quick start).
+This GitHub repository holds the **code**. The **data** is hosted externally and is downloaded automatically by the first script you run (see Quick start):
+
+- **Code** → this GitHub repository (cloned).
+- **Data** → **Zenodo** (record `20753379`): processed + raw data, intermediate model outputs, and figures.
+- **Raw sequencing reads** → **NCBI SRA** (BioProject `PRJNA1426049`).
 
 ---
 
@@ -48,8 +52,8 @@ Quantitative-Multispecies-eDNA/
 ### Step 0 — setup
 
 - **[`0_Download_data_and_code.R`](code/0_Download_data_and_code.R)** — **run this first.** Downloads data + code from Zenodo and raw sequences from the SRA, then opens the analysis notebooks. Everything else depends on it.
-- **[`download_sra.py`](code/download_sra.py)** — downloads FASTQ files and run metadata for BioProject `PRJNA1426049` into `SRA/fastq/` and `SRA/metadata/`. Called by step 0.
-- **[`concatenate_fastq.py`](code/concatenate_fastq.py)** — concatenates the per-run reverse reads into a single `SRA/combined_R2.fastq.gz`. Called by step 0.
+- **[`sra_python/download_sra.py`](code/sra_python/download_sra.py)** — downloads FASTQ files and run metadata for BioProject `PRJNA1426049` into `SRA/fastq/` and `SRA/metadata/`. Called by step 0.
+- **[`sra_python/concatenate_fastq.py`](code/sra_python/concatenate_fastq.py)** — concatenates the per-run reverse reads into a single `SRA/combined_R2.fastq.gz`. Called by step 0.
 
 ### Analysis notebooks (Quarto `.qmd`)
 
@@ -108,7 +112,8 @@ After completing **Step 0** ([`0_Download_data_and_code.R`](code/0_Download_data
 
 ## Data sources
 
-- **Processed data + code archive:** [Zenodo record 20753379](https://zenodo.org/records/20753379) (`Code_and_raw_data.zip`).
+- **Code:** this GitHub repository.
+- **Data archive (processed + raw data, intermediate outputs, figures):** [Zenodo record 20753379](https://zenodo.org/records/20753379) (`Code_and_raw_data.zip`).
 - **Raw sequencing reads:** NCBI SRA BioProject [`PRJNA1426049`](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA1426049).
 
 ## Notes
