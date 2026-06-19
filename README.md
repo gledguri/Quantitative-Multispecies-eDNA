@@ -37,7 +37,7 @@ Quantitative-Multispecies-eDNA/
 ├── code/                 Core analysis code (this repo)
 ├── data/                 Raw and lightly processed inputs   (from Zenodo)
 ├── Intermediate_data/    Cached pipeline outputs            (from Zenodo / regenerated)
-├── raw_plots/            Figures created with other software(from Zenodo)
+├── raw_plots/            Figures created with other software
 └── SRA/                  Raw sequencing data                (from NCBI SRA / can be downloaded through 0_.R)
     ├── fastq/                Per-run FASTQ files
     ├── metadata/             SRA run metadata
