@@ -114,7 +114,7 @@ After completing **Step 0** ([`0_Download_data.R`](code/0_Download_data.R)):
 ## Data sources
 
 - **Code:** this GitHub repository.
-- **Data archive (processed + raw data, intermediate outputs, figures):** [Zenodo record 20753379](https://zenodo.org/records/20753379) (`Code_and_raw_data.zip`).
+- **Data archive (processed + raw data, intermediate outputs, figures):** [Zenodo record 20754663](https://zenodo.org/records/20754663) (`Data.zip`).
 - **Raw sequencing reads:** NCBI SRA BioProject [`PRJNA1426049`](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA1426049).
 
 ## Notes
