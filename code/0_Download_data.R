@@ -1,5 +1,5 @@
 # =============================================================================
-# 0_Download_data_and_code.R
+# 0_Download_data.R
 # =============================================================================
 #
 # START HERE — This is the first script to run for reproducing the analysis.
@@ -61,7 +61,13 @@ meta <- jsonlite::fromJSON(paste0("https://zenodo.org/api/records/", record_id))
 
 files <- meta$files
 
-print(files[, c("key", "size", "links")])
+df <- data.frame(
+  key     = files$key,
+  size_Mb = round(files$size / 1024^2, 2),
+  size_Gb = round(files$size / 1024^3, 2),
+  link    = files$links$self)
+
+print(df, right = FALSE);rm(df)
 
 # This will download the files into the project directory
 download.file(
@@ -72,9 +78,10 @@ download.file(
 
 # --- Unzip files from Zenodo -----------------------------------------------------------------
 tmp <- tempfile()
-unzip("Code_and_raw_data.zip", exdir = tmp, unzip = "unzip")
+unzip("Data.zip", exdir = tmp, unzip = "unzip")
 
-inner <- file.path(tmp, "Code_and_raw_data")
+unlink(file.path(tmp, "__MACOSX"), recursive = TRUE)
+inner <- file.path(tmp)
 files <- list.files(inner, all.files = TRUE, no.. = TRUE, full.names = TRUE)
 file.copy(files, ".", recursive = TRUE)
 

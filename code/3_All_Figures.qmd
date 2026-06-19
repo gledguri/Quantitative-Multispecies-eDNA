@@ -382,11 +382,11 @@ pp3 <- cowplot::plot_grid(pp2,legend,nrow = 1,rel_widths = c(1,0.15))
 fig_2 <- cowplot::plot_grid(pp3,depth_scheme_plot,nrow=2,rel_heights = c(11,7), labels = c('(A)','(B)'),label_x = 0.85)
 fig_2
 
-# ggsave(
-#   # file = here('plots','2_Figure_2.pdf'),
-#   file = here('plots','2_Figure_2.jpg'),
-#   fig_2,
-#   width = 10,height = 13,units='in',bg='white')
+ggsave(
+  # file = here('plots','2_Figure_2.pdf'),
+  file = here('plots','2_Figure_2.jpg'),
+  fig_2,
+  width = 10,height = 13,units='in',bg='white')
 ```
 
 ```{r fig.width=14, fig.height=14, out.width="100%",warning=FALSE, message=FALSE}
@@ -529,11 +529,11 @@ fig_3 <-
 
 fig_3
 
-# ggsave(
-#   file = here('plots','3_Figure_3.pdf'),
-#   # file = here('plots','3_Figure_3.jpg'),
-#   fig_3,
-#   width = 7,height=7,units='in',bg='white')
+ggsave(
+  # file = here('plots','3_Figure_3.pdf'),
+  file = here('plots','3_Figure_3.jpg'),
+  fig_3,
+  width = 7,height=7,units='in',bg='white')
 ```
 
 ```{r fig.width=8.5, fig.height=13, out.width="100%",warning=FALSE, message=FALSE}
@@ -599,11 +599,11 @@ total_dna_map <-
 
 fig_4 <- cowplot::plot_grid(species_richness_map,total_dna_map,ncol = 1,align = 'v',labels=c('A','B'))
 fig_4
-# ggsave(
-# #   file = here('plots','4_Figure_4.pdf'),
-#   file = here('plots','4_Figure_4.jpg'),
-#   fig_4,
-#   h=13,w=8.5,units='in',bg='white')
+ggsave(
+#   file = here('plots','4_Figure_4.pdf'),
+  file = here('plots','4_Figure_4.jpg'),
+  fig_4,
+  h=13,w=8.5,units='in',bg='white')
 ```
 
 ```{r fig.width=14, fig.height=12, out.width="100%",warning=FALSE, message=FALSE}
@@ -951,9 +951,9 @@ p3 <- cowplot::plot_grid(p1,p2,nrow = 2,rel_heights = c(11,16),align = 'v',label
 fig_5 <- cowplot::plot_grid(p3,final_legend,ncol = 2,rel_widths = c(6,1.3))
 fig_5
 
-# ggsave(file = here('plots','5_Figure_5.jpg'),
-#        fig_5,
-#        h=12,w=14,units='in',bg='white')
+ggsave(file = here('plots','5_Figure_5.jpg'),
+       fig_5,
+       h=12,w=14,units='in',bg='white')
 ```
 
 ```{r fig.width=10, fig.height=13, out.width="100%",warning=FALSE, message=FALSE}
@@ -1062,9 +1062,9 @@ pp3 <- cowplot::plot_grid(pp2,legend,nrow = 1,rel_widths = c(1,0.15))
 sf2 <- cowplot::plot_grid(pp3,depth_scheme_plot,nrow=2,rel_heights = c(11,7), labels = c('(A)','(B)'),label_x = 0.85)
 sf2
 
-# ggsave(file = here('plots','7_Supplementary_Figure_2.jpg'),
-#        sf2,
-#        width = 10,height = 13,units='in',bg='white')
+ggsave(file = here('plots','7_Supplementary_Figure_2.jpg'),
+       sf2,
+       width = 10,height = 13,units='in',bg='white')
 ```
 
 ```{r fig.width=10, fig.height=8, out.width="100%",warning=FALSE, message=FALSE}
@@ -1088,9 +1088,9 @@ fit %>% filter(!species=='Zz_Merluccius productus') %>%
   theme_bw()
 sf3
 
-# ggsave(file = here('plots','8_Supplementary_Figure_3.jpg'),
-#        sf3,
-#        h=8,w=10,units='in',bg='white')
+ggsave(file = here('plots','8_Supplementary_Figure_3.jpg'),
+       sf3,
+       h=8,w=10,units='in',bg='white')
 ```
 
 ```{r fig.width=10, fig.height=8, out.width="100%",warning=FALSE, message=FALSE}
@@ -1155,9 +1155,9 @@ sf4 <-
   )
 
 sf4
-# ggsave(file = here('plots','9_Supplementary_Figure_4.jpg'),
-#        sf4,
-#        h=8,w=10,units='in',bg='white')
+ggsave(file = here('plots','9_Supplementary_Figure_4.jpg'),
+       sf4,
+       h=8,w=10,units='in',bg='white')
 ```
 
 ```{r}
@@ -1327,10 +1327,10 @@ sf_5_4 <- cowplot::plot_grid(plot_list[[10]],
                    rel_widths = c(4,4,4,2.2))
 
 
-# ggsave(here('plots','10_Supplementary_Figure_5_ppx_A.jpg'),sf_5_1,width = 10,height = 12)
-# ggsave(here('plots','10_Supplementary_Figure_5_ppx_B.jpg'),sf_5_2,width = 10,height = 12)
-# ggsave(here('plots','10_Supplementary_Figure_5_ppx_C.jpg'),sf_5_3,width = 10,height = 12)
-# ggsave(here('plots','10_Supplementary_Figure_5_ppx_D.jpg'),sf_5_4,width = 10,height = 12)
+ggsave(here('plots','10_Supplementary_Figure_5_A.jpg'),sf_5_1,width = 10,height = 12)
+ggsave(here('plots','10_Supplementary_Figure_5_B.jpg'),sf_5_2,width = 10,height = 12)
+ggsave(here('plots','10_Supplementary_Figure_5_C.jpg'),sf_5_3,width = 10,height = 12)
+ggsave(here('plots','10_Supplementary_Figure_5_D.jpg'),sf_5_4,width = 10,height = 12)
  
 
 ```
@@ -1601,9 +1601,9 @@ sf6 <- cowplot::plot_grid(pp3,leg,ncol = 2,rel_widths = c(7,1.5))
 
 sf6
 
-# ggsave(here('plots','11_Supplementary_Figure_6.jpg'),
-#        sf6,
-#        height = 13,width = 9)
+ggsave(here('plots','11_Supplementary_Figure_6.jpg'),
+       sf6,
+       height = 13,width = 9)
 ```
 
 ```{r}
@@ -1884,9 +1884,9 @@ p3 <- cowplot::plot_grid(pp4,p2)
 sf7 <- cowplot::plot_grid(p3,leg,rel_widths = c(7,1))
 sf7
 
-# ggsave(here('plots','12_Supplementary_Figure_7.jpg'),
-#        sf7,
-#        height = 12,width = 15)
+ggsave(here('plots','12_Supplementary_Figure_7.jpg'),
+       sf7,
+       height = 12,width = 15)
 
 ```
 
@@ -1996,9 +1996,11 @@ sf8_b <-
 # Extract the estimated log concentration
 post_conc <- extract_matrix(stan_post,'log_D')
 
+alpha <- extract_param(stan_post_mock,'alpha') %>% pull(mean)
+
 # Estimate gamma
 pred_logit_val_samp <- t(t(post_conc - post_conc$`13`) +
-                           (unique(stan_data$model_vector_a_samp)*stan_data$alpha_fix))
+                           (unique(stan_data$model_vector_a_samp)*alpha))
 
 # Estimate species proportions/probabilities
 pred_prop_samp <- pred_logit_val_samp %>% as.data.frame() %>% 
@@ -2163,9 +2165,9 @@ sf8 <-
   cowplot::plot_grid(sf8_a,sf8_b,sf8_d,sf8_e,sf8_c,leg1,labels = c('A','B','C','D','E'),ncol = 2,align = 'v')
 
 sf8
-# ggsave(file = here('plots','13_Supplementary_Figure_8.jpg'),
-#        sf8,
-#        h=13,w=11,units='in',bg='white')
+ggsave(file = here('plots','13_Supplementary_Figure_8.jpg'),
+       sf8,
+       h=13,w=11,units='in',bg='white')
 ```
 
 ```{r}
@@ -2309,9 +2311,9 @@ Log_d_est_all %>%
 sf9 <- cowplot::plot_grid(p1,p2,p3,p4,nrow = 2,align = 'vh',labels = c('A','B','C','D')) %>% 
   cowplot::plot_grid(.,legend,rel_widths = c(9,1))
 
-# ggsave(here('Plots','14_Supplementary_Figure_9.jpg'),
-#        sf9,
-#        width = 14,height = 8)
+ggsave(here('Plots','14_Supplementary_Figure_9.jpg'),
+       sf9,
+       width = 14,height = 8)
 
 ```
 
@@ -2367,9 +2369,9 @@ sf10 <- sf10_data %>%
 
 sf10
 
-# ggsave(here('Plots','15_Supplementary_Figure_10.jpg'),
-#        sf10,
-#        width = 12,height = 8)
+ggsave(here('Plots','15_Supplementary_Figure_10.jpg'),
+       sf10,
+       width = 12,height = 8)
 ```
 
 ```{r}
@@ -2414,7 +2416,7 @@ sf11 <- dens_samp_data %>%
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
 sf11
-# ggsave(here('plots','16_Supplementary_Figure_11.jpg'),
-#        sf11,
-#        width = 9,height = 6)
+ggsave(here('plots','16_Supplementary_Figure_11.jpg'),
+       sf11,
+       width = 9,height = 6)
 ```

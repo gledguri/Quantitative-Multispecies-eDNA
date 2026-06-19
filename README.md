@@ -12,11 +12,11 @@ This GitHub repository holds the **code**. The **data** is hosted externally and
 
 ## Quick start
 
-> **Step 0 — run this first.** [`code/0_Download_data_and_code.R`](code/0_Download_data_and_code.R) is the entry point that initiates everything. It downloads all data and raw sequences, so nothing else will run until it completes.
+> **Step 0 — run this first.** [`code/0_Download_data.R`](code/0_Download_data.R) is the entry point that initiates everything. It downloads all data and raw sequences, so nothing else will run until it completes.
 
 1. **Clone this repository** (or download it as a ZIP and unzip it).
 2. **Open the RStudio project**: double-click `Quantitative-Multispecies-eDNA.Rproj`. This sets the correct working directory so `here()` resolves paths properly.
-3. **Run [`code/0_Download_data_and_code.R`](code/0_Download_data_and_code.R)** — the "**0**" file. This will:
+3. **Run [`code/0_Download_data.R`](code/0_Download_data.R)** — the "**0**" file. This will:
    - Download the processed data + code archive from **Zenodo** (record `20753379`) and unpack it into the project.
    - Download the raw sequencing reads from the **NCBI SRA** (BioProject `PRJNA1426049`) into `SRA/` via the Python helper scripts.
    - Concatenate and decompress the reads into `SRA/combined_R2.fastq`.
@@ -51,7 +51,7 @@ Quantitative-Multispecies-eDNA/
 
 ### Step 0 — setup
 
-- **[`0_Download_data_and_code.R`](code/0_Download_data_and_code.R)** — **run this first.** Downloads data + code from Zenodo and raw sequences from the SRA, then opens the analysis notebooks. Everything else depends on it.
+- **[`0_Download_data.R`](code/0_Download_data.R)** — **run this first.** Downloads data + code from Zenodo and raw sequences from the SRA, then opens the analysis notebooks. Everything else depends on it.
 - **[`sra_python/download_sra.py`](code/sra_python/download_sra.py)** — downloads FASTQ files and run metadata for BioProject `PRJNA1426049` into `SRA/fastq/` and `SRA/metadata/`. Called by step 0.
 - **[`sra_python/concatenate_fastq.py`](code/sra_python/concatenate_fastq.py)** — concatenates the per-run reverse reads into a single `SRA/combined_R2.fastq.gz`. Called by step 0.
 
@@ -102,7 +102,7 @@ Downloaded from Zenodo so you can skip expensive steps. **Everything here is reg
 
 ## Recommended run order
 
-After completing **Step 0** ([`0_Download_data_and_code.R`](code/0_Download_data_and_code.R)):
+After completing **Step 0** ([`0_Download_data.R`](code/0_Download_data.R)):
 
 1. **Run the joint model + calibration** — render [`code/1_Run_QM_qPCR.qmd`](code/1_Run_QM_qPCR.qmd). Writes model inputs/outputs to `Intermediate_data/`.
 2. **Fit spatial smooths** — render [`code/2_sdmTMB_smooths_13sp.qmd`](code/2_sdmTMB_smooths_13sp.qmd). Writes smoothed outputs and map-uncertainty objects to `Intermediate_data/`.
