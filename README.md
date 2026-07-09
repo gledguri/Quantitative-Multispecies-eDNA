@@ -5,7 +5,7 @@ A reproducible pipeline that combines **qPCR** (absolute abundance for a referen
 This GitHub repository holds the **code**. The **data** is hosted externally and is downloaded automatically by the first script you run (see Quick start):
 
 - **Code** → this GitHub repository (cloned).
-- **Data** → **Zenodo** (record `20753379`): processed + raw data, intermediate model outputs, and figures.
+- **Data** → **Zenodo** (record `20754663`): processed + raw data, intermediate model outputs, and figures.
 - **Raw sequencing reads** → **NCBI SRA** (BioProject `PRJNA1426049`).
 
 ---
@@ -17,7 +17,7 @@ This GitHub repository holds the **code**. The **data** is hosted externally and
 1. **Clone this repository** (or download it as a ZIP and unzip it).
 2. **Open the RStudio project**: double-click `Quantitative-Multispecies-eDNA.Rproj`. This sets the correct working directory so `here()` resolves paths properly.
 3. **Run [`code/0_Download_data.R`](code/0_Download_data.R)** — the "**0**" file. This will:
-   - Download the processed data + code archive from **Zenodo** (record `20753379`) and unpack it into the project.
+   - Download the processed data + code archive from **Zenodo** (record `20754663`) and unpack it into the project.
    - Download the raw sequencing reads from the **NCBI SRA** (BioProject `PRJNA1426049`) into `SRA/` via the Python helper scripts.
    - Concatenate and decompress the reads into `SRA/combined_R2.fastq`.
 4. **Run the analysis notebooks in order** (see [Recommended run order](#recommended-run-order)).
