@@ -5,3 +5,13 @@
 .DS_Store
 ._*
 ~$*
+
+# Python build artifacts
+__pycache__/
+*.pyc
+
+# Large data archives (hosted on Zenodo, kept locally only — too big for git)
+Data.zip
+Code_and_raw_data.zip
+/data/
+/Intermediate_data/

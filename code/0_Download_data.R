@@ -16,8 +16,9 @@
 # wires everything into the project. It performs three main steps:
 #
 #   1. Download the data archive from Zenodo (record 20754663)
-#      - Code_and_raw_data.zip is unpacked into the project, populating the
-#        data/, and Intermediate_data/ directories.
+#      - Data.zip is unpacked into the project, populating the
+#        data/ and Intermediate_data/ directories. (No code is on Zenodo;
+#        the code comes from cloning this GitHub repository.)
 #
 #   2. Download raw sequencing data from NCBI SRA (BioProject PRJNA1426049)
 #      - Fetches paired-end FASTQ files via ENA and saves to SRA/fastq/
@@ -39,9 +40,10 @@
 # Project directory structure:
 #   project_root/
 #   ├── code/              Analysis scripts and Stan models   (from GitHub)
+#   ├── plots/             Final manuscript figures            (from GitHub)
+#   ├── raw_plots/         Figures created with other software (from GitHub)
 #   ├── data/              Raw qPCR, metabarcoding, metadata   (from Zenodo)
-#   ├── Intermediate_data/ Model outputs and processed data (from Zenodo)
-#   ├── raw_plots/         Figures created with other software (from Zenodo)
+#   ├── Intermediate_data/ Model outputs and processed data    (from Zenodo)
 #   └── SRA/               Raw sequencing data                 (from NCBI SRA)
 #       ├── fastq/         Per-run FASTQ files
 #       ├── metadata/      SRA run metadata
