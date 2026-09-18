@@ -8,17 +8,26 @@
 #   - CODE  -> this GitHub repository (the analysis scripts, notebooks, and
 #              Stan models you already have after cloning).
 #   - DATA  -> downloaded by this script from two external sources:
-#                * Zenodo (record 20754663) : processed + raw data, intermediate
+#                * Zenodo (record 22834224) : processed + raw data, intermediate
 #                                             model outputs, and figures.
 #                * NCBI SRA (PRJNA1426049)  : raw sequencing reads.
+#
+# Zenodo record: 22834224
+#   DOI (this version): https://doi.org/10.5281/zenodo.22834224
+#   DOI (concept, always latest): https://doi.org/10.5281/zenodo.14804069
+# The record holds two archives: Data.zip (downloaded here) and
+# code_and_plots.zip (a snapshot of the code/, plots/, and raw_plots/ folders
+# that mirrors this GitHub repository — NOT needed here, since the code is
+# already present from cloning the repo). This script downloads Data.zip only.
 #
 # This script fetches the data (the code is already present from GitHub) and
 # wires everything into the project. It performs three main steps:
 #
-#   1. Download the data archive from Zenodo (record 20754663)
+#   1. Download the data archive (Data.zip) from Zenodo (record 22834224)
 #      - Data.zip is unpacked into the project, populating the
-#        data/ and Intermediate_data/ directories. (No code is on Zenodo;
-#        the code comes from cloning this GitHub repository.)
+#        data/ and Intermediate_data/ directories. (The code comes from
+#        cloning this GitHub repository; a mirror snapshot is also archived
+#        on Zenodo as code_and_plots.zip.)
 #
 #   2. Download raw sequencing data from NCBI SRA (BioProject PRJNA1426049)
 #      - Fetches paired-end FASTQ files via ENA and saves to SRA/fastq/
@@ -56,8 +65,8 @@ library(here)
 
 # --- Download files from Zenodo --------------------------------------------------------------
 
-options(timeout = 3600) 
-record_id <- "20754663"
+options(timeout = 3600)
+record_id <- "22834224"   # Zenodo version DOI: 10.5281/zenodo.22834224
 
 meta <- jsonlite::fromJSON(paste0("https://zenodo.org/api/records/", record_id))
 
@@ -71,10 +80,15 @@ df <- data.frame(
 
 print(df, right = FALSE);rm(df)
 
-# This will download the files into the project directory
+# The record contains two archives (Data.zip and code_and_plots.zip); select
+# Data.zip by name so this stays correct regardless of file order.
+data_idx <- which(files$key == "Data.zip")
+if (length(data_idx) != 1) stop("Could not find a single 'Data.zip' in Zenodo record ", record_id)
+
+# This will download Data.zip into the project directory
 download.file(
-  url = files$links$self[1],   # first file; adjust index as needed
-  destfile = files$key[1],
+  url = files$links$self[data_idx],
+  destfile = files$key[data_idx],
   mode = "wb")
 
 
