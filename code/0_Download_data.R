@@ -8,12 +8,12 @@
 #   - CODE  -> this GitHub repository (the analysis scripts, notebooks, and
 #              Stan models you already have after cloning).
 #   - DATA  -> downloaded by this script from two external sources:
-#                * Zenodo (record 22834224) : processed + raw data, intermediate
+#                * Zenodo (record 22968177) : processed + raw data, intermediate
 #                                             model outputs, and figures.
 #                * NCBI SRA (PRJNA1426049)  : raw sequencing reads.
 #
-# Zenodo record: 22834224
-#   DOI (this version): https://doi.org/10.5281/zenodo.22834224
+# Zenodo record: 22968177
+#   DOI (this version): https://doi.org/10.5281/zenodo.22968177
 #   DOI (concept, always latest): https://doi.org/10.5281/zenodo.14804069
 # The record holds two archives: Data.zip (downloaded here) and
 # code_and_plots.zip (a snapshot of the code/, plots/, and raw_plots/ folders
@@ -23,7 +23,7 @@
 # This script fetches the data (the code is already present from GitHub) and
 # wires everything into the project. It performs three main steps:
 #
-#   1. Download the data archive (Data.zip) from Zenodo (record 22834224)
+#   1. Download the data archive (Data.zip) from Zenodo (record 22968177)
 #      - Data.zip is unpacked into the project, populating the
 #        data/ and Intermediate_data/ directories. (The code comes from
 #        cloning this GitHub repository; a mirror snapshot is also archived
@@ -66,7 +66,7 @@ library(here)
 # --- Download files from Zenodo --------------------------------------------------------------
 
 options(timeout = 3600)
-record_id <- "22834224"   # Zenodo version DOI: 10.5281/zenodo.22834224
+record_id <- "22968177"   # Zenodo version DOI: 10.5281/zenodo.22968177
 
 meta <- jsonlite::fromJSON(paste0("https://zenodo.org/api/records/", record_id))
 
