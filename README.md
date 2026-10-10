@@ -2,7 +2,13 @@
 
 A reproducible pipeline that combines **qPCR** (absolute abundance for a reference species) with **metabarcoding** (compositional, multi-species) in a **joint statistical model**, then fits **spatial smooths** to map estimated DNA concentrations and produces all manuscript figures.
 
-Where things live (each source holds a different, non-overlapping part of the project):
+## Project overview video
+
+https://github.com/user-attachments/assets/4ae3083d-2cea-4235-a7f0-7fb6348ec045
+
+## Where things live
+
+Each source holds a different, non-overlapping part of the project:
 
 - **Code, Stan models, and figures** → this **GitHub** repository (cloned). Includes `code/`, `plots/` (final manuscript figures), `raw_plots/`, and this README.
 - **Data** → **Zenodo** (record `20754663`, `Data.zip`): raw + lightly processed inputs (`data/`) and cached model outputs (`Intermediate_data/`). **No code is stored on Zenodo** — the code comes from GitHub. `Data.zip` is downloaded automatically by the first script you run (see Quick start).
